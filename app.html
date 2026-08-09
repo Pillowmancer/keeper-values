@@ -147,6 +147,14 @@
   .addform input, .addform select{width:100%;}
 
   .tiewarn{background:rgba(217,96,59,0.12); border:1px solid var(--danger); color:var(--chalk); padding:10px 14px; border-radius:4px; font-size:12.5px; margin-bottom:10px;}
+  .savetoast{position:fixed; right:18px; bottom:18px; z-index:2147483500;
+    background:var(--card); border:1px solid var(--ok); border-left:4px solid var(--ok);
+    color:var(--chalk); border-radius:6px; padding:10px 16px; font-size:13px;
+    box-shadow:0 8px 26px rgba(0,0,0,0.45); opacity:0; transform:translateY(8px);
+    transition:opacity .18s ease, transform .18s ease; pointer-events:none;}
+  .savetoast.show{opacity:1; transform:translateY(0);}
+  .savetoast .tick{color:var(--ok); font-weight:800; margin-right:5px;}
+  .savetoast .what{color:var(--chalk-dim);}
   .databadge{display:inline-flex; align-items:center; gap:7px; cursor:pointer;
     background:var(--field-dark); border:1px solid var(--line); border-radius:20px;
     padding:6px 13px; font-size:11px; font-weight:700; letter-spacing:0.05em;
@@ -262,6 +270,57 @@ function uid(){ return "p" + Math.random().toString(36).slice(2,9); }
    the button reads as simply broken — which is exactly how "Lock it in" and
    "Re-roll" came to do nothing at all, with no error to go on. These are plain
    DOM and work everywhere. */
+/* ---------- Per-device role, and visible confirmation of saves ----------
+   Kept in its own localStorage key, never in STATE: which device you are on is
+   a property of the device, not of the league, and syncing it would make the
+   phone's setting follow you back to the desktop. */
+const DEVICE_KEY = "keeper-device-mode";
+function deviceMode(){
+  try{ return localStorage.getItem(DEVICE_KEY) || "full"; }catch(e){ return "full"; }
+}
+function isDataOnly(){ return deviceMode() === "data"; }
+window.setDeviceMode = function(v){
+  try{ localStorage.setItem(DEVICE_KEY, v); }catch(e){}
+  render();
+};
+
+/* Every field already saved the moment it lost focus, but a value sitting in an
+   editable box looks exactly like a value that has not been saved. The handlers
+   re-render and destroy the element, so the confirmation lives on <body> where
+   the re-render cannot take it with it. */
+let toastTimer = null;
+function toastSaved(what){
+  let el = document.getElementById("save-toast");
+  if(!el){
+    el = document.createElement("div");
+    el.id = "save-toast";
+    el.className = "savetoast";
+    document.body.appendChild(el);
+  }
+  el.innerHTML = '<span class="tick">&#10003;</span> Saved' +
+    (what ? ' <span class="what">' + esc(what) + '</span>' : "");
+  el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ el.classList.remove("show"); }, 1900);
+}
+
+/* One listener for every field in the app, present and future, instead of a
+   confirmation bolted onto each of the couple of dozen setters. */
+function watchFieldSaves(){
+  document.addEventListener("change", function(e){
+    const el = e.target;
+    if(!el || !el.matches) return;
+    if(!el.matches("input, select, textarea")) return;
+    if(el.type === "file" || el.type === "checkbox") return;
+    if(el.closest && el.closest("#ui-modal")) return;
+    let label = "";
+    const row = el.closest(".addform") || el.closest("tr") || el.parentElement;
+    const lab = row && row.querySelector ? row.querySelector("label") : null;
+    if(lab) label = lab.textContent.trim().replace(/\s+/g, " ").slice(0, 28);
+    toastSaved(label);
+  }, true);
+}
+
 function uiModal(opts){
   return new Promise(resolve => {
     const prev = document.getElementById("ui-modal");
@@ -2665,7 +2724,7 @@ function renderDraftOrderPanel(){
   }).join("") : "";
 
   const locked = !!(current && current.locked);
-  const controls = ro ? "" : `<div class="toolbar" style="margin-bottom:${current?"10px":"0"};">
+  const controls = (ro || isDataOnly()) ? "" : `<div class="toolbar" style="margin-bottom:${current?"10px":"0"};">
       ${locked
         ? `<span class="badge" style="background:rgba(95,185,138,0.18);color:var(--ok);">&#128274; Locked &mdash; final</span>
            <button class="btn secondary small" onclick="unlockDraftOrder(${season})">Unlock</button>`
@@ -3358,9 +3417,10 @@ function renderTabs(){
   // Value List and Legacy Tracker are gone: the Keepers tab shows the same
   // numbers better, and their only unique content was the export buttons
   // (now in the Keepers toolbar) and the publish settings (now Settings).
-  const tabs = [["keepers","Keepers"],["draft","Draft Order"],["payouts","Payouts"],
-                ["import","Import"],["seasons","Seasons"],["hall","Hall of Fame"],
-                ["guide","Guide"],["rules","Rules"],["settings","Settings"]];
+  const tabs = [["keepers","Keepers"],["draft","Draft Order"],["payouts","Payouts"]]
+    .concat(isDataOnly() ? [] : [["import","Import"]])
+    .concat([["seasons","Seasons"],["hall","Hall of Fame"],
+             ["guide","Guide"],["rules","Rules"],["settings","Settings"]]);
   return `<div class="tabbar">
     ${tabs.map(([k,label])=>`<button class="tabbtn ${activeTab===k?'active':''}" onclick="setTab('${k}')">${label}</button>`).join("")}
   </div>`;
@@ -3380,7 +3440,7 @@ function renderKeepersToolbar(){
     <span style="flex:1"></span>
     ${working ? `
       <button class="btn" onclick="exportKeeperCostsJSON()">&#8681; ${STATE.season} keeper costs for Yahoo</button>
-      <button class="btn" onclick="lockSeason()">Finalize ${STATE.season} keepers</button>
+      ${isDataOnly() ? "" : `<button class="btn" onclick="lockSeason()">Finalize ${STATE.season} keepers</button>`}
     ` : `<span class="badge">${STATE.season} is history — read-only</span>`}
   </div>`;
 }
@@ -3471,7 +3531,7 @@ function playerRow(p, ctx){
     </td>
     <td style="text-align:center;">
       <input type="checkbox" ${p.keepThisYear?'checked':''} ${st.eligible ? "" : "disabled"} onchange="toggleKeep('${p.id}')"
-        title="${st.eligible ? "Mark as kept for " + STATE.season + ", then Finalize to lock it in" : "Ineligible — " + esc(st.reason)}">
+        title="${st.eligible ? "Mark as kept for " + STATE.season + (isDataOnly() ? ", then finalize from the desktop" : ", then Finalize to lock it in") : "Ineligible — " + esc(st.reason)}">
       ${tieSelect}
     </td>
     <td><button class="rowbtn" onclick="dropPlayer('${p.id}')" title="Drop from roster (keeps history for later)">&#8681;</button> <button class="rowbtn" onclick="removePlayer('${p.id}')" title="Delete entirely (data-entry mistake)">🗑</button></td>
@@ -3855,6 +3915,23 @@ function renderWherePanel(){
     <td class="mono ${c.ok?"live":"zero"}" style="width:22%">${esc(c.note)}</td>
   </tr>`).join("");
 
+  /* A new device -- a phone, another browser -- is indistinguishable from a
+     broken one unless you say so. Credentials never sync by design, so the app
+     always starts here looking empty, and that reads as "it didn't sync". */
+  const looksNew = !cloudConfigured() && !(STATE.savedAt) &&
+                   (STATE.players || []).length === (SEED_PLAYERS || []).length;
+  const newDevice = looksNew ? `<div class="tiewarn" style="margin-bottom:10px;">
+    <b>New device?</b> Your league data is safe in GitHub &mdash; it just hasn't been
+    pulled down here yet. Your token is the one thing that never syncs, on purpose, so
+    enter it once in <b>GitHub Pages auto-publish</b> below and everything downloads.
+    <br><br>
+    Only browsing? The read-only league page needs no setup at all:
+    ${(STATE.github||{}).appUrl
+      ? `<a href="${esc((STATE.github.appUrl||"").replace(/app\.html$/,""))}" target="_blank"
+           rel="noopener" style="color:var(--gold);">open the league page &rarr;</a>`
+      : `it's the address you publish to.`}
+  </div>` : "";
+
   const tone = live >= 2 ? "var(--ok)" : (live === 1 ? "var(--gold)" : "var(--danger)");
   const headline = live >= 2 ? `Your data is in ${live} places`
                  : live === 1 ? "Your data is in ONE place only"
@@ -3883,6 +3960,7 @@ function renderWherePanel(){
 
   return `<div class="grid-owner" style="border-color:${tone};">
     <h4>Where your data lives</h4>
+    ${newDevice}
     ${addr}
     <div class="livehead" style="margin-bottom:10px;">
       <span class="livedot" style="background:${tone};"></span>
@@ -3910,6 +3988,31 @@ function renderDataBadge(){
     title="${copies.map(c => c.name + ": " + (c.ok ? "ok" : "off")).join(" · ")}">
     <span class="livedot" style="background:${tone};"></span>
     <span style="color:${tone};">${label}</span></button>`;
+}
+
+function renderDevicePanel(){
+  const dataOnly = isDataOnly();
+  return `<div class="grid-owner"${dataOnly ? ' style="border-color:var(--gold);"' : ''}>
+    <h4>What this device can do</h4>
+    <div class="import-help">
+      A phone is for entering a weekly score or nudging the draft date on the way to work,
+      not for importing a season or republishing the league page by accident. This setting
+      belongs to <b>this device only</b> &mdash; it is stored here, never synced, so setting
+      your phone to data entry does not touch your desktop.
+    </div>
+    <div class="addform" style="grid-template-columns:auto 1fr; align-items:center;">
+      <label>This device</label>
+      <select onchange="setDeviceMode(this.value)">
+        <option value="full" ${dataOnly ? "" : "selected"}>Full commissioner &mdash; everything</option>
+        <option value="data" ${dataOnly ? "selected" : ""}>Data entry only &mdash; safe for a phone</option>
+      </select>
+    </div>
+    ${dataOnly ? `<div class="import-help" style="margin-top:8px;color:var(--gold);">
+      <b>Data entry only.</b> You can still edit payouts, key dates, notes and keeper picks,
+      and everything you change syncs to GitHub as normal. Hidden here: importing a season,
+      finalizing keepers, rolling or locking the draft order, restoring a backup, and
+      publishing either the league page or the app. Do those from the desktop.</div>` : ""}
+  </div>`;
 }
 
 function renderStoragePanel(){
@@ -3994,9 +4097,9 @@ function renderStoragePanel(){
       ${cloudConfigured() ? `<button class="btn" onclick="syncToCloud(true)">&#8635; Sync now</button>` : ""}
       <button class="btn secondary" onclick="backupData()"
         title="One-off snapshot to your Downloads folder. The folder and cloud copies above happen automatically.">&#8681; Back up my data (one-off)</button>
-      <label class="btn secondary" style="cursor:pointer;">Restore from backup
+      ${isDataOnly() ? "" : `<label class="btn secondary" style="cursor:pointer;">Restore from backup
         <input type="file" accept=".json,application/json" style="display:none"
-               onchange="restoreData(event)"></label>
+               onchange="restoreData(event)"></label>`}
     </div>
   </div>`;
 }
@@ -4007,7 +4110,7 @@ function renderSettingsPanel(){
   const hasNetlify = STATE.netlify && STATE.netlify.token && STATE.netlify.siteId;
   const hasGithub = STATE.github && STATE.github.token && STATE.github.owner && STATE.github.repo;
   const connected = hasGithub || hasNetlify;
-  return renderWherePanel() + renderStoragePanel() + `<div class="grid-owner">
+  return renderWherePanel() + renderDevicePanel() + renderStoragePanel() + `<div class="grid-owner">
       <h4>This season on Yahoo</h4>
       <div class="import-help">The league page links to Yahoo with this. It's the number in
         this season's Yahoo URL: football.fantasysports.yahoo.com/f1/<b>&lt;this&gt;</b>.</div>
@@ -4048,7 +4151,7 @@ function renderSettingsPanel(){
         anyway on purpose: hiding the button that repairs an unconfigured app was how this
         turned into a chicken-and-egg.`}
       </div>
-      ${connected ? `<div class="toolbar" style="margin-bottom:0;">
+      ${connected && !isDataOnly() ? `<div class="toolbar" style="margin-bottom:0;">
         ${hasGithub ? `<button class="btn" id="githubPublishBtn" onclick="publishToGithub()">Publish live to GitHub Pages</button>` : ""}
         ${hasNetlify ? `<button class="btn" id="netlifyPublishBtn" onclick="publishToNetlify()">Publish live to Netlify</button>` : ""}
       </div>` : `<div class="import-help" style="color:var(--gold);">
@@ -5631,6 +5734,7 @@ function render(){
 }
 
 async function init(){
+  watchFieldSaves();
   requestDurableStorage();
   await restoreDirHandle();
   await loadState();
