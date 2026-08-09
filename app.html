@@ -1691,6 +1691,7 @@ function ensureEvents(season){
    at the end of that day, a draft in the evening -- both changeable. */
 window.setEventDatePart = function(season, field, part, value){
   const e = ensureEvents(season);
+  e.rev = (e.rev || 0) + 1;   // so a re-downloaded invite updates instead of duplicating
   const bits = (e[field] || "").split("T");
   let d = bits[0] || "", t = bits[1] || "";
   if(part === "date"){
@@ -1709,6 +1710,7 @@ function eventTimePart(v){ return ((v || "").split("T")[1] || "").slice(0,5); }
 
 window.setEventField = function(season, field, value){
   const e = ensureEvents(season);
+  if(field !== "rev") e.rev = (e.rev || 0) + 1;
   e[field] = (value || "").trim();
   saveState();
   render();
@@ -1788,6 +1790,30 @@ function wallStamp(d, tz){
   }catch(e){ return icsStamp(d).replace("Z",""); }
 }
 
+/* RFC 5545 wants content lines folded at 75 octets, continued with a leading
+   space. The venue line was already sitting at exactly 75; one longer address
+   and strict parsers start truncating or rejecting the file. */
+function icsFold(line){
+  const enc = new TextEncoder();
+  if(enc.encode(line).length <= 75) return line;
+  const out = [];
+  let cur = "", curLen = 0, limit = 75;
+  for(const ch of line){                       // by code point, never split one
+    const n = enc.encode(ch).length;
+    if(curLen + n > limit){
+      out.push(cur);
+      cur = " " + ch; curLen = 1 + n; limit = 75;
+    } else { cur += ch; curLen += n; }
+  }
+  if(cur) out.push(cur);
+  return out.join(String.fromCharCode(13, 10));
+}
+
+function icsBuild(lines){
+  const CRLF = String.fromCharCode(13, 10);
+  return lines.filter(Boolean).map(icsFold).join(CRLF) + CRLF;
+}
+
 function icsStamp(d){
   return d.getUTCFullYear()
     + String(d.getUTCMonth()+1).padStart(2,"0") + String(d.getUTCDate()).padStart(2,"0")
@@ -1798,7 +1824,7 @@ function icsEscape(s){
   return String(s || "").replace(/\\/g, "\\\\").replace(/;/g, "\\;")
     .replace(/,/g, "\\,").replace(/\n/g, "\\n");
 }
-function calendarLinks(title, iso, minutes, where, details, tz){
+function calendarLinks(title, iso, minutes, where, details, tz, uidKey, seq){
   const start = eventInstant(iso, tz || eventTz());
   if(!start) return "";
   const end = new Date(start.getTime() + minutes*60000);
@@ -1813,19 +1839,27 @@ function calendarLinks(title, iso, minutes, where, details, tz){
     + "&ctz=" + encodeURIComponent(zone)
     + (where ? "&location=" + encodeURIComponent(where) : "")
     + (details ? "&details=" + encodeURIComponent(details) : "");
-  const ics = [
+  /* The UID identifies the event, not the time it happens to sit at. It used to
+     be built from the start time, so moving the draft handed everyone a second
+     event rather than updating the one they already had. A stable UID plus a
+     SEQUENCE that rises on every edit means a re-download revises in place. */
+  const uid = "whs-" + STATE.season + "-" + (uidKey || "event") + "@whs-fantasy-football";
+  const ics = icsBuild([
     "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//WHS Fantasy Football//EN",
-    "CALSCALE:GREGORIAN", "BEGIN:VEVENT",
-    "UID:" + icsStamp(start) + "-whsff@localhost",
+    "CALSCALE:GREGORIAN", "METHOD:PUBLISH", "BEGIN:VEVENT",
+    "UID:" + uid,
+    "SEQUENCE:" + (seq || 0),
     "DTSTAMP:" + icsStamp(new Date()),
+    "LAST-MODIFIED:" + icsStamp(new Date()),
     "DTSTART:" + icsStamp(start), "DTEND:" + icsStamp(end),
     "SUMMARY:" + icsEscape(title),
     where ? "LOCATION:" + icsEscape(where) : null,
     details ? "DESCRIPTION:" + icsEscape(details) : null,
+    "STATUS:CONFIRMED", "TRANSP:OPAQUE",
     "BEGIN:VALARM", "TRIGGER:-PT1H", "ACTION:DISPLAY",
     "DESCRIPTION:" + icsEscape(title), "END:VALARM",
     "END:VEVENT", "END:VCALENDAR"
-  ].filter(Boolean).join("\r\n");
+  ]);
   const file = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + ".ics";
   return `<div class="cdcal">
     <a class="chip cal" href="${esc(g)}" target="_blank" rel="noopener noreferrer">+ Google Calendar</a>
@@ -2510,10 +2544,12 @@ function keyDatesSection(){
     <div class="cdgrid">
       ${hasDeadline ? clock("Keeper Deadline", e.keeperDeadline,
           calendarLinks(STATE.season + " WHS keeper deadline", e.keeperDeadline, 30, "",
-            "Set your two keepers in Yahoo before this deadline.", tz)) : ""}
+            "Set your two keepers in Yahoo before this deadline.", tz,
+            "keeper-deadline", e.rev || 0)) : ""}
       ${hasDraft ? clock("Draft Night", e.draftAt,
           calendarLinks(STATE.season + " WHS Fantasy Football draft", e.draftAt, 180,
-            [e.venue, e.address].filter(Boolean).join(", "), "", tz),
+            [e.venue, e.address].filter(Boolean).join(", "), "", tz,
+            "draft", e.rev || 0),
           whereBlock) : ""}
     </div>
     ${!hasDraft && whereBlock ? whereBlock : ""}
