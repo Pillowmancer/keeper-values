@@ -147,6 +147,14 @@
   .addform input, .addform select{width:100%;}
 
   .tiewarn{background:rgba(217,96,59,0.12); border:1px solid var(--danger); color:var(--chalk); padding:10px 14px; border-radius:4px; font-size:12.5px; margin-bottom:10px;}
+  input.edited, textarea.edited{border-color:var(--gold) !important;
+    background:rgba(240,180,46,0.10) !important; box-shadow:0 0 0 2px rgba(240,180,46,0.16);}
+  .dirtybar{position:fixed; left:0; right:0; bottom:0; z-index:2147483400;
+    display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+    background:var(--card); border-top:2px solid var(--gold);
+    padding:11px 18px; box-shadow:0 -6px 22px rgba(0,0,0,0.4); font-size:13px;}
+  .dirtybar .dot{width:9px; height:9px; border-radius:50%; background:var(--gold); flex:none;}
+  .dirtybar b{color:var(--gold);}
   .savetoast{position:fixed; right:18px; bottom:18px; z-index:2147483500;
     background:var(--card); border:1px solid var(--ok); border-left:4px solid var(--ok);
     color:var(--chalk); border-radius:6px; padding:10px 16px; font-size:13px;
@@ -275,6 +283,7 @@ function uid(){ return "p" + Math.random().toString(36).slice(2,9); }
    a property of the device, not of the league, and syncing it would make the
    phone's setting follow you back to the desktop. */
 const DEVICE_KEY = "keeper-device-mode";
+const PENDING_PUBLISH_KEY = "keeper-pending-page-publish";
 function deviceMode(){
   try{ return localStorage.getItem(DEVICE_KEY) || "full"; }catch(e){ return "full"; }
 }
@@ -313,11 +322,102 @@ function watchFieldSaves(){
     if(!el.matches("input, select, textarea")) return;
     if(el.type === "file" || el.type === "checkbox") return;
     if(el.closest && el.closest("#ui-modal")) return;
+    // Explicit-save fields confirm when they are actually saved, not on blur.
+    if(el.hasAttribute && el.hasAttribute("data-commit")) return;
     let label = "";
     const row = el.closest(".addform") || el.closest("tr") || el.parentElement;
     const lab = row && row.querySelector ? row.querySelector("label") : null;
     if(lab) label = lab.textContent.trim().replace(/\s+/g, " ").slice(0, 28);
     toastSaved(label);
+  }, true);
+}
+
+/* ---------- Edited vs saved ----------
+   Fields used to commit on blur, which meant a value you typed and thought
+   better of was already stored, and a value you had typed looked exactly like
+   one that was saved. Now typing marks the field as edited and nothing is
+   written until you say so. Because every render rebuilds fields from STATE,
+   discarding is simply not committing: the saved value comes straight back.
+
+   Fields opt in with data-commit="<expression>" instead of onchange. */
+const dirtyFields = new Set();
+
+function fieldIsDirty(el){ return el.dataset.saved !== undefined && el.value !== el.dataset.saved; }
+
+function markDirty(el){
+  if(el.dataset.saved === undefined) el.dataset.saved = el.defaultValue;
+  if(fieldIsDirty(el)){ el.classList.add("edited"); dirtyFields.add(el); }
+  else { el.classList.remove("edited"); dirtyFields.delete(el); }
+  renderDirtyBar();
+}
+
+function renderDirtyBar(){
+  let bar = document.getElementById("dirty-bar");
+  const n = dirtyFields.size;
+  if(!n){ if(bar) bar.remove(); return; }
+  if(!bar){
+    bar = document.createElement("div");
+    bar.id = "dirty-bar";
+    bar.className = "dirtybar";
+    document.body.appendChild(bar);
+  }
+  bar.innerHTML =
+    '<span class="dot"></span><b>' + n + ' unsaved change' + (n === 1 ? '' : 's') + '</b>' +
+    '<span class="pnote">Nothing is stored until you save.</span>' +
+    '<span style="flex:1"></span>' +
+    '<button class="btn small" onclick="saveDirtyFields()">Save</button>' +
+    '<button class="btn secondary small" onclick="discardDirtyFields()">Discard</button>';
+}
+
+window.saveDirtyFields = function(){
+  // Snapshot first: committing re-renders, which destroys the live elements.
+  const jobs = [...dirtyFields].map(el => ({ el, code: el.getAttribute("data-commit"), value: el.value }));
+  dirtyFields.clear();
+  renderDirtyBar();
+  let saved = 0;
+  for(const j of jobs){
+    if(!j.code) continue;
+    try{
+      // `this` is the field, so existing handlers written against this.value work unchanged.
+      new Function(j.code).call({ value: j.value });
+      saved++;
+    }catch(err){ console.error("Field save failed", j.code, err); }
+  }
+  render();
+  if(saved) toastSaved(saved + " field" + (saved === 1 ? "" : "s"));
+};
+
+window.discardDirtyFields = function(){
+  dirtyFields.clear();
+  renderDirtyBar();
+  render();            // rebuilt from STATE, so every edit is simply gone
+  toastReverted();
+};
+
+let revertTimer = null;
+function toastReverted(){
+  let el = document.getElementById("save-toast");
+  if(!el){
+    el = document.createElement("div");
+    el.id = "save-toast"; el.className = "savetoast";
+    document.body.appendChild(el);
+  }
+  el.innerHTML = '<span class="tick" style="color:var(--danger);">&#8630;</span> Reverted to saved';
+  el.classList.add("show");
+  clearTimeout(revertTimer);
+  revertTimer = setTimeout(function(){ el.classList.remove("show"); }, 1900);
+}
+
+function watchDirtyFields(){
+  document.addEventListener("input", function(e){
+    const el = e.target;
+    if(el && el.matches && el.matches("[data-commit]")) markDirty(el);
+  }, true);
+  document.addEventListener("keydown", function(e){
+    const el = e.target;
+    if(!el || !el.matches || !el.matches("[data-commit]")) return;
+    if(e.key === "Enter"){ e.preventDefault(); saveDirtyFields(); }
+    if(e.key === "Escape"){ e.preventDefault(); discardDirtyFields(); }
   }, true);
 }
 
@@ -1676,6 +1776,18 @@ function mapsUrl(address){
 /* Calendar hand-off. Two links because there is no one answer: Google takes a
    URL, everything else takes a file. The .ics is a data: URI so the published
    page stays a single static file with nothing to fetch. */
+/* The same instant written as it appears on a clock in that zone. */
+function wallStamp(d, tz){
+  try{
+    const p = new Intl.DateTimeFormat("en-US", { timeZone: tz, hour12:false,
+      year:"numeric", month:"2-digit", day:"2-digit",
+      hour:"2-digit", minute:"2-digit", second:"2-digit" })
+      .formatToParts(d).reduce(function(a,x){ a[x.type]=x.value; return a; }, {});
+    const hh = String((+p.hour) % 24).padStart(2,"0");
+    return p.year + p.month + p.day + "T" + hh + p.minute + p.second;
+  }catch(e){ return icsStamp(d).replace("Z",""); }
+}
+
 function icsStamp(d){
   return d.getUTCFullYear()
     + String(d.getUTCMonth()+1).padStart(2,"0") + String(d.getUTCDate()).padStart(2,"0")
@@ -1690,9 +1802,15 @@ function calendarLinks(title, iso, minutes, where, details, tz){
   const start = eventInstant(iso, tz || eventTz());
   if(!start) return "";
   const end = new Date(start.getTime() + minutes*60000);
+  /* Google drops the trailing Z on the dates parameter and reads the digits as
+     local time, so a correct UTC stamp lands hours out. Send the wall time in
+     the league's zone and name the zone with ctz, which it does honour. The
+     .ics keeps Z, which Apple and Outlook read correctly. */
+  const zone = tz || eventTz();
   const g = "https://calendar.google.com/calendar/render?action=TEMPLATE"
     + "&text=" + encodeURIComponent(title)
-    + "&dates=" + icsStamp(start) + "/" + icsStamp(end)
+    + "&dates=" + wallStamp(start, zone) + "/" + wallStamp(end, zone)
+    + "&ctz=" + encodeURIComponent(zone)
     + (where ? "&location=" + encodeURIComponent(where) : "")
     + (details ? "&details=" + encodeURIComponent(details) : "");
   const ics = [
@@ -1840,7 +1958,7 @@ function renderPayoutsPanel(){
   const num = (v, on, i) => ro
     ? `<b class="mono">${money(v)}</b>`
     : `<input type="number" step="1" value="${v==null?"":v}" style="width:88px"
-        onchange="setPayoutField(${season}, '${on}', ${i==null?"null":i}, this.value)">`;
+        data-commit="setPayoutField(${season}, '${on}', ${i==null?"null":i}, this.value)">`;
 
   const filled = (p.weeks||[]).filter(w=>w.owner).length;
   const weekRows = (p.weeks||[]).slice().sort((a,b)=>a.week-b.week).map(w=>{
@@ -1858,10 +1976,10 @@ function renderPayoutsPanel(){
       owners.map(o=>`<option value="${esc(o)}" ${w.owner===o?"selected":""}>${esc(o)}</option>`)).join("");
     return `<tr${done?"":' class="locked"'}>
       <td class="mono" style="width:9%"><input type="number" value="${w.week}" style="width:52px"
-          onchange="setPayoutWeek(${season}, ${i}, 'week', this.value)"></td>
+          data-commit="setPayoutWeek(${season}, ${i}, 'week', this.value)"></td>
       <td style="width:26%"><select onchange="setPayoutWeek(${season}, ${i}, 'owner', this.value)">${opts}</select></td>
       <td style="width:20%"><input type="number" step="0.01" value="${w.score==null?"":w.score}" style="width:96px"
-          placeholder="score" onchange="setPayoutWeek(${season}, ${i}, 'score', this.value)"></td>
+          placeholder="score" data-commit="setPayoutWeek(${season}, ${i}, 'score', this.value)"></td>
       <td class="mono ${done?"live":""}">${money(p.weeklyPrize)}</td>
       <td style="text-align:right"><button class="rowbtn" title="Remove this week"
           onclick="removePayoutWeek(${season}, ${i})">&times;</button></td>
@@ -2647,16 +2765,16 @@ function renderEventsCard(season, ro){
       <label>Keepers due</label>
       <div class="datetimepair">
         <input type="date" value="${esc(eventDatePart(e.keeperDeadline))}"
-          onchange="setEventDatePart(${season}, 'keeperDeadline', 'date', this.value)">
+          data-commit="setEventDatePart(${season}, 'keeperDeadline', 'date', this.value)">
         <input type="time" value="${esc(eventTimePart(e.keeperDeadline))}"
-          onchange="setEventDatePart(${season}, 'keeperDeadline', 'time', this.value)">
+          data-commit="setEventDatePart(${season}, 'keeperDeadline', 'time', this.value)">
       </div>
       <label>Draft starts</label>
       <div class="datetimepair">
         <input type="date" value="${esc(eventDatePart(e.draftAt))}"
-          onchange="setEventDatePart(${season}, 'draftAt', 'date', this.value)">
+          data-commit="setEventDatePart(${season}, 'draftAt', 'date', this.value)">
         <input type="time" value="${esc(eventTimePart(e.draftAt))}"
-          onchange="setEventDatePart(${season}, 'draftAt', 'time', this.value)">
+          data-commit="setEventDatePart(${season}, 'draftAt', 'time', this.value)">
       </div>
       <label>Time zone</label>
       <select onchange="setEventField(${season}, 'tz', this.value)">
@@ -2667,10 +2785,10 @@ function renderEventsCard(season, ro){
       </select>
       <label>Venue</label>
       <input type="text" placeholder="e.g. Phil's place" value="${esc(e.venue)}"
-        onchange="setEventField(${season}, 'venue', this.value)">
+        data-commit="setEventField(${season}, 'venue', this.value)">
       <label>Address</label>
       <input type="text" placeholder="Street, city &mdash; or leave blank" value="${esc(e.address)}"
-        onchange="setEventField(${season}, 'address', this.value)">
+        data-commit="setEventField(${season}, 'address', this.value)">
     </div>
     ${when || deadline ? `<div class="pnote" style="margin-top:10px;">
       ${deadline ? `Keepers due <b>${esc(deadline)}</b>.` : ""}
@@ -3019,7 +3137,7 @@ function renderCapturePanel(){
     </table>
     <div class="addform" style="grid-template-columns:auto 1fr; margin-top:12px;">
       <label style="align-self:center;">Season ended</label>
-      <input type="date" value="${esc(seasonEnd)}" onchange="setCaptureSeasonEnd(this.value)">
+      <input type="date" value="${esc(seasonEnd)}" data-commit="setCaptureSeasonEnd(this.value)">
     </div>
     <div class="import-help">Rule 8 counts back four weeks from this date. Read from Yahoo's
       final week; change it only if that's wrong.</div>
@@ -4116,7 +4234,7 @@ function renderSettingsPanel(){
         this season's Yahoo URL: football.fantasysports.yahoo.com/f1/<b>&lt;this&gt;</b>.</div>
       <div class="addform" style="grid-template-columns:auto 1fr;">
         <input type="text" style="width:140px" value="${esc(STATE.currentLeagueId||"")}"
-          onchange="STATE.currentLeagueId=this.value.trim(); saveState(); render();">
+          data-commit="STATE.currentLeagueId=this.value.trim(); saveState(); render();">
       </div>
     </div>
     <div class="grid-owner">
@@ -4704,7 +4822,7 @@ function buildShareableHTML(){
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
 <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet">
 <meta name="referrer" content="no-referrer">
-<title>Keeper Values — ${season} Season</title>
+<title>WHS Fantasy Football — ${season}</title>
 <style>
   :root{ --field:#224533; --field-dark:#193527; --chalk:#f6f2e7; --chalk-dim:#c6d2c5; --gold:#f0b42e; --gold-dim:#a07d22; --line:#3f5f4b; --danger:#e57450; --ok:#6fc99a; --card:#2a533d; }
   *{box-sizing:border-box;} body{margin:0; background:linear-gradient(180deg, var(--field) 0%, var(--field-dark) 100%); color:var(--chalk); font-family:"Helvetica Neue",Arial,sans-serif; padding:32px 20px 60px;}
@@ -5052,17 +5170,17 @@ function publishPreflight(){
   ];
 }
 
-window.publishToGithub = async function(){
+window.publishToGithub = async function(silent){
   const { token, owner, repo, path } = STATE.github || {};
   if(!token || !owner || !repo){
-    uiAlert("Add your GitHub token, username, and repo name first (below).");
+    if(!silent) uiAlert("Add your GitHub token, username, and repo name first (below).");
     return;
   }
   const pre = publishPreflight();
   const missing = pre.filter(x => !x.ok);
   const NL = String.fromCharCode(10);
   const lines = pre.map(x => (x.ok ? "✓ " : "✗ ") + x.name + " — " + x.detail).join(NL);
-  const go = await uiConfirm(
+  const go = silent ? true : await uiConfirm(
     "This is what the league will see:" + NL + NL + lines +
     (missing.length
       ? NL + NL + "The " + missing.length + " marked ✗ will not appear on the page at all. " +
@@ -5126,11 +5244,15 @@ window.publishToGithub = async function(){
     await saveState();
     liveStatus = null;
     checkLiveStatus();
+    if(silent){ toastSaved("league page republished"); return; }
     uiAlert("Published.\n\nGitHub has the new page. Pages usually serves it within a\n" +
             "minute — the Live status panel above will turn green once it does.\n\n" + pagesUrl,
             "Published");
   }catch(err){
-    uiAlert("Couldn't publish — this can happen if the token, username, or repo name is wrong, or if GitHub Pages isn't enabled for this repo yet.\n\nError: " + err.message + "\n\nFallback: use \"Download read-only page\" below and upload it manually through GitHub's website — that always works regardless of this error.");
+    // The automatic catch-up runs on load; it must not greet you with a modal.
+    // It logs, and the Live status panel already shows the page is behind.
+    if(silent){ console.error("Catch-up publish failed", err); logSync("publish", false, err.message); }
+    else uiAlert("Couldn't publish — this can happen if the token, username, or repo name is wrong, or if GitHub Pages isn't enabled for this repo yet.\n\nError: " + err.message + "\n\nFallback: use \"Download read-only page\" below and upload it manually through GitHub's website — that always works regardless of this error.");
   }finally{
     if(btn){ btn.disabled = false; btn.textContent = "Publish live to GitHub Pages"; }
   }
@@ -5252,10 +5374,15 @@ window.publishAppFromFile = async function(ev){
 
     STATE.github.appUrl = appUrl;
     await saveState();
+    /* The league page is rendered by whatever code is *running*, so publishing
+       it now would ship the old rendering alongside the new app. Flag it, and
+       let the next load -- which is the new code -- do it. */
+    try{ localStorage.setItem(PENDING_PUBLISH_KEY, "1"); }catch(e){}
     render();
     uiAlert("Published " + f.name + " to:" + NL + NL + appUrl + NL + NL +
-            "Give Pages a minute, then reload that page. Your data is untouched - " +
-            "this replaces the code only.", "App updated");
+            "Reload that page in a minute. The league page then republishes itself " +
+            "automatically, so the app and the page can never drift apart." + NL + NL +
+            "Your data is untouched - this replaces the code only.", "App updated");
   }catch(e){
     uiAlert("Couldn't publish that file." + NL + NL + (e && e.message ? e.message : ""));
   }finally{
@@ -5718,6 +5845,12 @@ function renderRulesPanel(){
 }
 
 function render(){
+  // Rebuilding wipes the live fields, and with them any edit that was never
+  // committed -- which is exactly the intended behaviour: unsaved means gone.
+  if(typeof dirtyFields !== "undefined" && dirtyFields.size){
+    dirtyFields.clear();
+    renderDirtyBar();
+  }
   const app = document.getElementById("app");
   let body = "";
   if(activeTab==="keepers") body = renderKeepersPanel();
@@ -5735,6 +5868,7 @@ function render(){
 
 async function init(){
   watchFieldSaves();
+  watchDirtyFields();
   requestDurableStorage();
   await restoreDirHandle();
   await loadState();
@@ -5758,6 +5892,14 @@ async function init(){
     await saveState();
   }
   render();
+
+  // An app update left the league page a version behind. This is that reload.
+  try{
+    if(localStorage.getItem(PENDING_PUBLISH_KEY) && cloudConfigured() && !isDataOnly()){
+      localStorage.removeItem(PENDING_PUBLISH_KEY);
+      await publishToGithub(true);
+    }
+  }catch(e){ console.error("Catch-up publish failed", e); }
 }
 init();
 
