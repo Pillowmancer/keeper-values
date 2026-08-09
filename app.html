@@ -347,20 +347,28 @@ const STORE_KEY = "keeper-league-state";
    are re-hydrated from here whenever STATE comes back without them. */
 const CREDS_KEY = "keeper-league-creds";
 
-function saveCreds(){
-  try{
-    localStorage.setItem(CREDS_KEY, JSON.stringify({
-      github: STATE.github || null, netlify: STATE.netlify || null }));
-  }catch(e){}
+async function saveCreds(){
+  const blob = JSON.stringify({ github: STATE.github || null, netlify: STATE.netlify || null });
+  // Written to BOTH stores. Inside Claude's artifact viewer the app saves through
+  // window.storage, which is scoped to the artifact — so every time the file is
+  // edited it is effectively a new artifact with an empty store, and the token
+  // vanishes. localStorage there is a separate drawer that may outlive it. Neither
+  // is reliable alone; the permanent URL is the actual answer.
+  try{ localStorage.setItem(CREDS_KEY, blob); }catch(e){}
+  try{ await store().set(CREDS_KEY, blob, false); }catch(e){}
 }
-function loadCreds(){
+async function loadCreds(){
+  try{
+    const r = await store().get(CREDS_KEY, false);
+    if(r && r.value) return JSON.parse(r.value);
+  }catch(e){}
   try{ return JSON.parse(localStorage.getItem(CREDS_KEY) || "null"); }
   catch(e){ return null; }
 }
 /* Put the saved credentials back if STATE arrived without usable ones. Never
    overwrites a token that is actually present. */
-function rehydrateCreds(){
-  const c = loadCreds();
+async function rehydrateCreds(){
+  const c = await loadCreds();
   if(!c) return false;
   let restored = false;
   const g = STATE.github || {};
@@ -866,7 +874,7 @@ async function syncFromCloud(){
       STATE.payouts = STATE.payouts || JSON.parse(JSON.stringify(SEED_PAYOUTS));
       STATE.events = STATE.events || {};
       adopted = true;
-      rehydrateCreds();   // the cloud copy carries no credentials, by design
+      await rehydrateCreds();   // the cloud copy carries no credentials, by design
     }
     // Locked orders win regardless of timestamps — the lock is the point.
     const local = STATE.draftOrders || {};
@@ -5366,9 +5374,9 @@ async function init(){
   requestDurableStorage();
   await restoreDirHandle();
   await loadState();
-  rehydrateCreds();
+  await rehydrateCreds();
   if(await offerFolderRestore()) render();
-  rehydrateCreds();
+  await rehydrateCreds();
   render();                       // show something immediately
 
   // The cloud copy is the authority, and it is consulted BEFORE this browser is
