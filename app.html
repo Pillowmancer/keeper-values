@@ -5937,13 +5937,67 @@ function renderHallPanel(){
     </div>`;
 }
 
+/* Two cards, deliberately in this order: the rules as written, then what the
+   engine does about each one. The numbering is shared -- rule 6 here is rule 6
+   in the code, on the league page, and in the note under a player's name. */
+const RULE_MECHANICS = [
+  "Enforced. Ticking a third keeper for an owner is refused; the owner header counts the slots used.",
+  "Automatic. Each finalized keeper year drops the cost by one round, walked from the draft record.",
+  "Automatic. A round-1 pick is marked ineligible and can't be ticked.",
+  "Automatic. Once the walk reaches round 1 the player is ineligible from then on.",
+  "Automatic. Draft year plus two keeps; the Owned Seasons pills show the run and flag the cap.",
+  "Automatic. Round 8 or later, and anyone added in season, prices at 8.",
+  "Automatic. Cost is carried on the player, so drops and re-adds don't reset it.",
+  "Automatic from the capture. Add dates come from the transaction log and the played check from " +
+    "season points — both only exist for 2025 onward, so earlier years rely on the draft and roster archive.",
+  "Half automatic. The collision is detected and finalizing is blocked until you assign the rounds " +
+    "yourself — which player moves up is a judgement call, not a rule.",
+  "Automatic on export. Every eligible player gets a number and every ineligible one a literal 0, " +
+    "because a blank box in Yahoo falls through to the default of 8.",
+  "Automatic. A trade resets the 3-year clock for the new owner and carries the cost across unchanged.",
+  "Automatic. Only players on the final end-of-season roster are in the pool at all."
+];
+
 function renderRulesPanel(){
+  const rules = RULES_TEXT.map((r, i) =>
+    `<tr><td class="rdcell" style="width:34px;vertical-align:top;color:var(--gold);">${i+1}</td>
+      <td>${esc(r)}</td></tr>`).join("");
+  const mech = RULES_TEXT.map((r, i) => {
+    const m = RULE_MECHANICS[i] || "";
+    const auto = /^Automatic/.test(m);
+    const tone = auto ? "var(--ok)" : (/^Half/.test(m) ? "var(--gold)" : "var(--chalk-dim)");
+    return `<tr>
+      <td class="rdcell" style="width:34px;vertical-align:top;color:var(--gold);">${i+1}</td>
+      <td style="vertical-align:top;"><b>${esc(r.split(/[.—]/)[0].trim())}</b></td>
+      <td style="vertical-align:top;color:${tone};">${esc(m)}</td>
+    </tr>`;
+  }).join("");
+
   return `<div class="grid-owner">
-    <h4>How the calculator applies your rules</h4>
-    <ol style="line-height:1.9; font-size:14px; color:var(--chalk-dim); padding-left:20px;">
-      ${RULES_TEXT.map(r=>`<li>${esc(r)}</li>`).join("")}
-    </ol>
-    <p class="pnote" style="font-size:12px;">This is just a quick-reference copy baked into the tool — the original rules document is still the source of truth, so edit that if anything changes.</p>
+    <h4>The keeper rules &mdash; the source of truth</h4>
+    <div class="import-help">
+      The league's rules, as written, in the numbering everything else refers to. The engine
+      cites these numbers in the notes under each player, and the league page prints the same
+      list so anyone can look one up. <b>Rules 1&ndash;10 are the original set</b>; anything
+      added since is appended, never inserted, because renumbering them would silently break
+      every reference.
+    </div>
+    <table class="previewtable"><tbody>${rules}</tbody></table>
+    <p class="pnote" style="font-size:12px;">Changing the wording here changes what the league
+      reads on the next publish. Changing the <i>order</i> breaks the citations &mdash; add to
+      the end instead.</p>
+  </div>
+
+  <div class="grid-owner">
+    <h4>How the calculator applies them</h4>
+    <div class="import-help">
+      What the app actually does with each rule, so you can tell at a glance which ones it
+      settles on its own and which still need you. Only one is a judgement call.
+    </div>
+    <table class="previewtable">
+      <thead><tr><th style="width:34px">#</th><th style="width:32%">Rule</th><th>What the app does</th></tr></thead>
+      <tbody>${mech}</tbody>
+    </table>
   </div>`;
 }
 
