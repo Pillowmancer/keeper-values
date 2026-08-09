@@ -256,13 +256,13 @@ const RULES_TEXT = [
   "You may never keep a player who was drafted in the 1st round.",
   "Once a keeper's cost reaches 1st-round value, he can no longer be kept.",
   "Max 3 years with the same player on the same roster — the year you drafted him plus 2 keeper years — no matter what the value is.",
-  "A trade gives the new owner a fresh 3-year clock. The cost carries over unchanged, but the years the previous owner already used do not come with him.",
   "Anyone drafted 8th round or later, including waiver/FA pickups, keeps at an 8th-round cost.",
   "Keeper value follows the player through trades, drops, and adds — it doesn't reset.",
   "A player must be rostered 4+ weeks and have played to be keeper-eligible, cutoff one month before the championship ends.",
-  "Only players on your final end-of-season roster can be kept. Anyone dropped and never re-added is gone, whatever he cost.",
   "If two of your keepers land on the same round value, you must assign them to different rounds (or ADP decides).",
-  "On Yahoo, the salary shown next to a player's name during Choose Keepers is their draft cost. 0 = ineligible."
+  "On Yahoo, the salary shown next to a player's name during Choose Keepers is their draft cost. 0 = ineligible.",
+  "A trade gives the new owner a fresh 3-year clock. The cost carries over unchanged, but the years the previous owner already used do not come with him.",
+  "Only players on your final end-of-season roster can be kept. Anyone dropped and never re-added is gone, whatever he cost."
 ];
 
 let STATE = null;
@@ -2599,19 +2599,44 @@ function draftOrderSection(){
 
 function payoutSection(){
   const s = payoutSummary(STATE.season);
-  if(!s || (!s.p.weeks.length && !s.placesOut)) return "";
+  if(!s) return "";
   const remaining = s.potIn - (s.p.weeklyPrize || 0) * (s.p.weeks || []).length;
   const pct = (v) => remaining > 0 ? Math.round(v / remaining * 100) + "% of what's left" : "";
-  const filled = s.p.weeks.filter(w=>w.owner);
-  const weeks = filled.sort((a,b)=>a.week-b.week).map(w=>
-    `<tr><td>Week ${w.week}</td><td>${esc(w.owner)}</td>
-      <td class="valcell">${w.score==null?"—":w.score.toFixed(2)}</td>
-      <td class="valcell">${money(s.p.weeklyPrize)}</td></tr>`).join("");
-  const earners = s.ledger.filter(r=>r.won>0).map(r=>
-    `<tr><td>${esc(r.owner)}${r.place&&r.placePrize?` (${r.place}${["st","nd","rd"][r.place-1]||"th"})`:""}</td>
-      <td class="valcell">${money(r.won)}</td></tr>`).join("");
+
+  /* The schedule is shown whether or not anyone has won yet: an empty week is
+     information -- it says the season is that long and those weeks are still
+     up for grabs. Hiding it until the first result made the page look unbuilt. */
+  const allWeeks = (s.p.weeks || []).slice().sort((a,b) => a.week - b.week);
+  const filled = allWeeks.filter(w => w.owner);
+  const weeks = allWeeks.map(w => `<tr${w.owner ? "" : ' class="dimrow"'}>
+      <td>Week ${w.week}</td>
+      <td>${w.owner ? esc(w.owner) : `<span class="notkept">not played yet</span>`}</td>
+      <td class="valcell">${w.score == null ? "&mdash;" : w.score.toFixed(2)}</td>
+      <td class="valcell">${w.owner ? money(s.p.weeklyPrize) : "&mdash;"}</td>
+    </tr>`).join("");
+
+  const board = s.ledger.slice()
+    .sort((a, b) => (b.net - a.net) || a.owner.localeCompare(b.owner))
+    .map((r, i) => {
+      // The trophy marks whoever has won the most, not whoever is in profit --
+      // for most of a season nobody is up yet, and a leaderboard with no leader
+      // is just a list.
+      const leads = i === 0 && r.won > 0;
+      return `<tr${leads ? ' class="keptrow"' : ''}>
+        <td class="pcell">${leads ? "&#127942; " : ""}${esc(r.owner)}${
+          r.place && r.placePrize ? ` <span class="notkept">${r.place}${
+            ["st","nd","rd"][r.place-1] || "th"}</span>` : ""}</td>
+        <td class="valcell notkept">${money(-s.p.buyIn)}</td>
+        <td class="valcell">${r.weeks ? r.weeks + " &times; " + money(s.p.weeklyPrize) : "&mdash;"}</td>
+        <td class="valcell">${r.placePrize ? money(r.placePrize) : "&mdash;"}</td>
+        <td class="valcell"><span class="val${r.net > 0 ? "" : " zero"}">${money(r.net)}</span></td>
+      </tr>`;
+    }).join("");
+
   return `<section class="rules" id="payouts">
     <h2>${STATE.season} Pot &amp; Weekly Prizes</h2>
+    <p>Everyone puts in ${money(s.p.buyIn)}, and every dollar of it comes back out &mdash;
+    a prize for the top score each week all season, then the rest to the top three.</p>
     <div class="prizegrid">
       <div class="prize"><small>Buy-in</small><b>${money(s.p.buyIn)}</b><span>&times; ${s.owners.length} teams = ${money(s.potIn)}</span></div>
       <div class="prize weekly"><small>Weekly top score</small><b>${money(s.p.weeklyPrize)}</b><span>&times; ${(s.p.weeks||[]).length} weeks = ${money((s.p.weeklyPrize||0)*(s.p.weeks||[]).length)}</span></div>
@@ -2619,12 +2644,40 @@ function payoutSection(){
       <div class="prize silver"><small>2nd place</small><b>${money(s.p.places[1])}</b><span>${pct(s.p.places[1])}</span></div>
       <div class="prize bronze"><small>3rd place</small><b>${money(s.p.places[2])}</b><span>${pct(s.p.places[2])}</span></div>
     </div>
-    ${filled.length || earners ? `<div class="grid">
-      ${filled.length ? `<section class="team"><h2>Weekly winners so far</h2>
-        <table><tbody>${weeks}</tbody></table></section>` : ""}
-      ${earners ? `<section class="team"><h2>Winnings</h2>
-        <table><tbody>${earners}</tbody></table></section>` : ""}
-    </div>` : `<p class="notkept">Weekly winners will show up here once the season gets rolling — check back after week one.</p>`}
+  </section>
+
+  <section class="rules" id="money-board">
+    <h2>Who's up, who's down</h2>
+    <p>${filled.length
+      ? `${filled.length} week${filled.length === 1 ? "" : "s"} paid out so far. Place prizes
+         land once the season finishes.`
+      : `Nobody has won anything yet &mdash; everyone is out their buy-in until the first
+         weekly top score lands.`}</p>
+    <table class="histtable">
+      <thead><tr>
+        <th style="width:26%">Owner</th><th class="valcell" style="width:14%">Buy-in</th>
+        <th class="valcell" style="width:22%">Weekly</th>
+        <th class="valcell" style="width:16%">Place</th>
+        <th class="valcell">Net</th>
+      </tr></thead>
+      <tbody>${board}</tbody>
+    </table>
+  </section>
+
+  <section class="rules" id="weekly-winners">
+    <h2>Weekly top scores</h2>
+    <p>${filled.length
+      ? `The highest score each week takes ${money(s.p.weeklyPrize)}.`
+      : `The highest score each week takes ${money(s.p.weeklyPrize)}. All
+         ${allWeeks.length} weeks are still up for grabs.`}</p>
+    <table class="histtable">
+      <thead><tr>
+        <th style="width:18%">Week</th><th style="width:40%">Top scorer</th>
+        <th class="valcell" style="width:20%">Score</th>
+        <th class="valcell">Prize</th>
+      </tr></thead>
+      <tbody>${weeks || `<tr><td colspan="4" class="notkept">No weeks recorded for ${STATE.season} yet.</td></tr>`}</tbody>
+    </table>
   </section>`;
 }
 
@@ -4549,37 +4602,44 @@ function keeperHowToSection(){
 function keeperRulesSection(){
   return `<section class="rules" id="keeper-rules">
     <h2>The Keeper Rules</h2>
-    <p>Two keepers each, every keeper costs a pick — here's the whole system, no fine print:</p>
-    <ul>
-      <li><b>Keep up to two players</b> from your end-of-season roster. One or none
-        is fine too.</li>
-      <li><b>The price is the round you drafted him in.</b> Draft a guy in round 3,
-        and keeping him costs your round-3 pick.</li>
-      <li><b>Drafted in round 8 or later — or picked up during the season? He costs
-        a round 8.</b> That's the sleeper discount: Puka Nacua went in round 14 back
-        in 2023 and cost just an 8th to keep.</li>
-      <li><b>The price climbs one round for every year you keep him.</b> An 8th
-        becomes a 7th, a 7th becomes a 6th. Great picks get pricier to hold —
-        that's the point.</li>
-      <li><b>Three years, then back in the pool.</b> Draft year plus two keeps is
-        the max — that's why Puka finally hit the board again. <b>A trade restarts
-        the clock</b> for the new owner; the price stays put.</li>
-      <li><b>First-rounders can't be kept.</b> And once a keeper's price climbs all
-        the way to round 1, his run is over.</li>
-      <li><b>The price sticks to the player.</b> Dropping and re-adding a guy
-        doesn't make him cheap again — and if you drop him and never take him back,
-        he can't be kept at all.</li>
-      <li><b>He has to finish the year on your team — and he has to have played.</b>
-        Rostered the final four weeks of the season, with at least one game played
-        that year. No stashing December pickups, no keeping a guy who never took
-        the field.</li>
-      <li><b>Your two keepers can't cost the same round.</b> One bumps up a round —
-        your choice, or ADP decides for you.</li>
-      <li><b>In Yahoo:</b> the salary next to a player's name is his price in
-        rounds. A <b>0</b> means he can't be kept this year; no number means
-        <b>8</b>.</li>
-    </ul>
+    <p>Two keepers each, every keeper costs a pick — here's the whole system, no fine print.
+    They're numbered so we can point at one: if a player's row says
+    <span class="mono">rule 8</span>, that's the one it means.</p>
+    <ol>
+      <li><b>Keep up to two players</b> from your end-of-season roster. One or none is fine too.</li>
+      <li><b>The price is the round you drafted him in.</b> Draft a guy in round 3, and keeping him costs your round-3 pick.</li>
+      <li><b>First-rounders can't be kept.</b> And once a keeper's price climbs all the way to round 1, his run is over.</li>
+      <li><b>Once the price reaches round 1, he's done.</b> That's the natural end of any keeper's run.</li>
+      <li><b>Three years, then back in the pool.</b> Draft year plus two keeps is the max — that's why Puka finally hit the board again.</li>
+      <li><b>Drafted in round 8 or later — or picked up during the season? He costs a round 8.</b> That's the sleeper discount: Puka Nacua went in round 14 back in 2023 and cost just an 8th to keep.</li>
+      <li><b>The price sticks to the player.</b> Dropping and re-adding a guy doesn't make him cheap again.</li>
+      <li><b>He has to finish the year on your team — and he has to have played.</b> Rostered the final four weeks of the season, with at least one game played that year. No stashing December pickups.</li>
+      <li><b>Your two keepers can't cost the same round.</b> One bumps up a round — your choice, or ADP decides for you.</li>
+      <li><b>In Yahoo, the salary next to a player's name is his price in rounds.</b> A <b>0</b> means he can't be kept this year; no number means <b>8</b>.</li>
+      <li><b>A trade restarts the clock.</b> The new owner gets a fresh three years, and the price carries over unchanged.</li>
+      <li><b>Dropped and never picked back up? He's gone.</b> Only players on your final roster at the end of the season can be kept.</li>
+    </ol>
   </section>`;
+}
+
+/* The commissioner's note explains why a cost is what it is, which is exactly
+   what an owner wants to know -- but it is written for the person running the
+   league. It cites rule numbers the public rulebook does not use, and mentions
+   the draft archive it was derived from. Same facts, league's words, no sauce. */
+function publicNote(note){
+  if(!note) return "";
+  return String(note)
+    .replace(/\.\s*Chain derived from the draft archive; costs are the rounds he was taken in\./,
+             " — each year kept moves the price up a round.")
+    .replace(/\s*He was already a keeper in (\d{4}), so part of his history predates the archive\./,
+             " He was already a keeper before $1.")
+    // Rule numbers stay. Being able to say "that's rule 6" and have someone look
+    // rule 6 up is the entire point of numbering them.
+    .replace(/\s*—\s*rule 6 prices the 8th on at 8\./i, " — rule 6: round 8 or later costs an 8.")
+    .replace(/\s*—\s*rule 6 prices him at 8\./i, " — rule 6: picked up in season, so he costs an 8.")
+    .replace(/\bdraft archive\b/gi, "our draft history")
+    .replace(/\bderived\b/gi, "worked out")
+    .trim();
 }
 
 /* The current season, in the same table the commissioner works from — pills,
@@ -4594,8 +4654,10 @@ function valuesDetailedSection(season){
       const st = getStatus(p, season);
       const lastRd = p.lastDraftRound != null ? p.lastDraftRound
                    : (p.draftYear === season - 1 && p.draftedRound != null ? p.draftedRound : null);
+      const pn = publicNote(p.note);
       return `<tr class="${p.keepThisYear ? "keptrow" : (st.eligible ? "" : "dimrow")}">
-        <td class="pcell">${esc(p.name)}${positionTag(p.name)}</td>
+        <td class="pcell">${esc(p.name)}${positionTag(p.name)}${
+          pn ? `<div class="pubnote">${esc(pn)}</div>` : ""}</td>
         <td class="rdcell">${lastRd != null ? lastRd : "—"}</td>
         <td>${historyPillStack(p, season)}</td>
         <td class="costcell">${st.eligible
@@ -4779,8 +4841,10 @@ function histValuesSection(){
         const wasKept = kept.has(deriveKey(p.name));
         const lastRd = p.lastDraftRound != null ? p.lastDraftRound
                      : (p.draftYear === y - 1 && p.draftedRound != null ? p.draftedRound : null);
+        const pn = publicNote(p.note);
         return `<tr class="${wasKept ? "keptrow" : (st.eligible ? "" : "dimrow")}">
-          <td class="pcell">${esc(p.name)}${positionTag(p.name)}</td>
+          <td class="pcell">${esc(p.name)}${positionTag(p.name)}${
+            pn ? `<div class="pubnote">${esc(pn)}</div>` : ""}</td>
           <td class="rdcell">${lastRd != null ? lastRd : "—"}</td>
           <td>${historyPillStack(p, y)}</td>
           <td class="costcell">${st.eligible
@@ -4952,6 +5016,9 @@ function buildShareableHTML(){
     font-weight:700; text-transform:uppercase; background:rgba(229,116,80,0.16); color:var(--danger);}
   .keptrow td{background:rgba(240,180,46,0.10);}
   .keptrow .pcell{color:var(--gold);}
+  .pubnote{font-size:10.5px; color:var(--chalk-dim); font-style:italic;
+    font-weight:400; margin-top:3px; line-height:1.45;}
+  .dimrow td{background:rgba(0,0,0,0.18);}
   .dimrow .pcell{opacity:0.55;}
   .keptmark{font-size:10px; font-weight:700; letter-spacing:0.08em; color:var(--gold);}
   .notkept{font-size:10.5px; color:var(--chalk-dim); font-style:italic;}
@@ -4987,14 +5054,13 @@ function buildShareableHTML(){
   <div class="meta">${season} SEASON &middot; PUBLISHED ${generated.toUpperCase()}</div>
   <nav class="pagenav">
     <a id="nav-welcome" href="#welcome">Welcome</a><a id="nav-values"
-    href="#values">Keeper Values</a><a id="nav-rules" href="#rules">The Keeper
+    href="#values">Keeper Values</a><a id="nav-money" href="#money">The Money</a><a id="nav-rules" href="#rules">The Keeper
     Rules</a><a id="nav-history" href="#history">League History</a><a
     id="nav-hall" href="#hall">Hall of Fame</a>
   </nav>
   <div class="tab" id="tab-welcome">
     ${welcomeSection(season)}
     ${keyDatesSection()}
-    ${payoutSection()}
     ${draftOrderSection()}
   </div>
   <div class="tab" id="tab-values">
@@ -5008,6 +5074,7 @@ function buildShareableHTML(){
     <div class="values-simple"><div class="grid">${ownerSections}</div></div>
     ${keeperHowToSection()}
   </div>
+  <div class="tab" id="tab-money">${payoutSection()}</div>
   <div class="tab" id="tab-rules">${keeperRulesSection()}</div>
   <div class="tab" id="tab-history">${histValuesSection()}${draftHistorySection()}</div>
   <div class="tab" id="tab-hall">${championsSection()}${sackoSection()}${statsSection()}</div>
@@ -5016,7 +5083,7 @@ function buildShareableHTML(){
   var SACKO_QUIPS_PUB=${JSON.stringify(SACKO_QUIPS)};
   (function(){
     document.body.classList.add("tabbed");
-    var tabs=["welcome","values","rules","history","hall"];
+    var tabs=["welcome","values","money","rules","history","hall"];
     var QUIPS=SACKO_QUIPS_PUB.slice();
     for(var i=QUIPS.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));
       var tmp=QUIPS[i];QUIPS[i]=QUIPS[j];QUIPS[j]=tmp;}
