@@ -332,6 +332,9 @@ async function loadState(){
     }
   }catch(e){ /* not found or error, fall through to seed */ }
   STATE = defaultState();
+  // Put any saved credentials back BEFORE the first write, so the seed's empty
+  // ones never become what gets persisted.
+  await rehydrateCreds();
   await saveState();
 }
 
@@ -348,6 +351,13 @@ const STORE_KEY = "keeper-league-state";
 const CREDS_KEY = "keeper-league-creds";
 
 async function saveCreds(){
+  const g = STATE.github || {}, n = STATE.netlify || {};
+  /* Never write blanks over a good backup. A fresh instance seeds with empty
+     credentials and saves immediately, which used to overwrite the very copy
+     that was meant to survive that moment — so the token was destroyed on the
+     first load of every new artifact, everywhere, before anything could restore
+     it. An empty set is not news; it is the absence of news. */
+  if(!g.token && !n.token) return;
   const blob = JSON.stringify({ github: STATE.github || null, netlify: STATE.netlify || null });
   // Written to BOTH stores. Inside Claude's artifact viewer the app saves through
   // window.storage, which is scoped to the artifact — so every time the file is
