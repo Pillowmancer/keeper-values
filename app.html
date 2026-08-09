@@ -1557,17 +1557,57 @@ window.setEventField = function(season, field, value){
 
 /* A local datetime-local string means what it says on the tin — the league is
    all in one place, so it is deliberately not converted to UTC. */
-function eventDate(v){
+/* Times are stored as wall clock ("2026-09-03T20:30") plus the zone they were
+   meant in. Without the zone the app is only ever correct by accident: the same
+   string means two different instants on a Pacific laptop and a UTC server, and
+   every countdown and calendar invite inherits the error. */
+function eventTz(season){
+  const e = eventsFor(season == null ? STATE.season : season) || {};
+  return e.tz || browserTz();
+}
+function browserTz(){
+  try{ return Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Los_Angeles"; }
+  catch(err){ return "America/Los_Angeles"; }
+}
+
+/* How far the named zone sits from UTC at a given instant, DST included. */
+function tzOffsetMs(ts, tz){
+  try{
+    const p = new Intl.DateTimeFormat("en-US", { timeZone: tz, hour12: false,
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", second: "2-digit" })
+      .formatToParts(new Date(ts))
+      .reduce(function(a, x){ a[x.type] = x.value; return a; }, {});
+    const asUTC = Date.UTC(+p.year, +p.month - 1, +p.day, (+p.hour) % 24, +p.minute, +p.second);
+    return asUTC - ts;
+  }catch(err){ return 0; }
+}
+
+/* Wall time in a zone -> the actual instant. Solved by iteration because the
+   offset depends on the answer: a couple of passes settles it, including the
+   twice-yearly hours where the clock jumps. */
+function eventInstant(v, tz){
   if(!v) return null;
-  const d = new Date(v);
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(v);
+  if(!m){ const d = new Date(v); return isNaN(d.getTime()) ? null : d; }
+  const zone = tz || eventTz();
+  const wall = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
+  let ts = wall;
+  for(let i = 0; i < 3; i++) ts = wall - tzOffsetMs(ts, zone);
+  const d = new Date(ts);
   return isNaN(d.getTime()) ? null : d;
 }
 
-function formatEventWhen(v){
-  const d = eventDate(v);
+function eventDate(v, tz){ return eventInstant(v, tz || eventTz()); }
+
+function formatEventWhen(v, tz){
+  const zone = tz || eventTz();
+  const d = eventInstant(v, zone);
   if(!d) return "";
-  return d.toLocaleString(undefined, { weekday:"long", month:"long", day:"numeric",
-    year:"numeric", hour:"numeric", minute:"2-digit" });
+  // Always name the zone. "8:30 PM" alone is a different time to half the league.
+  return d.toLocaleString("en-US", { weekday: "long", month: "long", day: "numeric",
+    year: "numeric", hour: "numeric", minute: "2-digit",
+    timeZone: zone, timeZoneName: "short" });
 }
 
 function mapsUrl(address){
@@ -1587,8 +1627,8 @@ function icsEscape(s){
   return String(s || "").replace(/\\/g, "\\\\").replace(/;/g, "\\;")
     .replace(/,/g, "\\,").replace(/\n/g, "\\n");
 }
-function calendarLinks(title, iso, minutes, where, details){
-  const start = eventDate(iso);
+function calendarLinks(title, iso, minutes, where, details, tz){
+  const start = eventInstant(iso, tz || eventTz());
   if(!start) return "";
   const end = new Date(start.getTime() + minutes*60000);
   const g = "https://calendar.google.com/calendar/render?action=TEMPLATE"
@@ -2255,11 +2295,18 @@ function statsData(){
 function keyDatesSection(){
   const e = eventsFor(STATE.season);
   if(!e) return "";
-  const hasDraft = !!eventDate(e.draftAt);
-  const hasDeadline = !!eventDate(e.keeperDeadline);
+  const tz = eventTz(STATE.season);
+  const hasDraft = !!eventDate(e.draftAt, tz);
+  const hasDeadline = !!eventDate(e.keeperDeadline, tz);
   if(!hasDraft && !hasDeadline && !e.venue && !e.address) return "";
 
-  const clock = (label, iso, sub, cal) => `<div class="cdblock" data-deadline="${esc(iso)}">
+  /* data-deadline carries an absolute UTC instant, never the wall-clock string.
+     The countdown runs in each reader's own browser, so a naive string would be
+     read in their timezone -- someone three hours east would have counted down
+     to the wrong moment and turned up early. */
+  const clock = (label, iso, cal, extra) => {
+    const at = eventInstant(iso, tz);
+    return `<div class="cdblock" data-deadline="${esc(at ? at.toISOString() : "")}">
       <small>${label}</small>
       <div class="cdclock">
         <span class="cdnum" data-unit="d">&mdash;</span><i>d</i>
@@ -2267,28 +2314,32 @@ function keyDatesSection(){
         <span class="cdnum" data-unit="m">&mdash;</span><i>m</i>
         <span class="cdnum" data-unit="s">&mdash;</span><i>s</i>
       </div>
-      <span class="cdwhen">${esc(formatEventWhen(iso))}</span>
-      ${sub ? `<span class="cdwhen">${sub}</span>` : ""}
+      <span class="cdwhen">${esc(formatEventWhen(iso, tz))}</span>
       ${cal || ""}
+      ${extra || ""}
     </div>`;
+  };
 
+  // Where the draft is belongs to the draft, inside its own box.
   const where = [];
   if(e.venue) where.push(`<b>${esc(e.venue)}</b>`);
-  if(e.address) where.push(`${esc(e.address)} &mdash;
-    <a href="${esc(mapsUrl(e.address))}" target="_blank" rel="noopener noreferrer">open in Maps &rarr;</a>`);
+  if(e.address) where.push(`${esc(e.address)}<br>
+    <a href="${esc(mapsUrl(e.address))}" target="_blank" rel="noopener noreferrer">Open in Maps &rarr;</a>`);
+  const whereBlock = where.length
+    ? `<div class="cdwhere">&#128205; ${where.join("<br>")}</div>` : "";
 
   return `<section class="rules" id="key-dates">
     <h2>${STATE.season} &mdash; mark your calendar</h2>
     <div class="cdgrid">
-      ${hasDeadline ? clock("Keepers due in", e.keeperDeadline,
-          "Miss it and you draft with nobody.",
-          calendarLinks(STATE.season + " WHS keepers due", e.keeperDeadline, 30, "",
-            "Set your two keepers in Yahoo before this deadline.")) : ""}
-      ${hasDraft ? clock("Draft night in", e.draftAt, "",
+      ${hasDeadline ? clock("Keeper Deadline", e.keeperDeadline,
+          calendarLinks(STATE.season + " WHS keeper deadline", e.keeperDeadline, 30, "",
+            "Set your two keepers in Yahoo before this deadline.", tz)) : ""}
+      ${hasDraft ? clock("Draft Night", e.draftAt,
           calendarLinks(STATE.season + " WHS Fantasy Football draft", e.draftAt, 180,
-            [e.venue, e.address].filter(Boolean).join(", "), "")) : ""}
+            [e.venue, e.address].filter(Boolean).join(", "), "", tz),
+          whereBlock) : ""}
     </div>
-    ${where.length ? `<p style="margin-top:4px;">&#128205; ${where.join("<br>")}</p>` : ""}
+    ${!hasDraft && whereBlock ? whereBlock : ""}
   </section>`;
 }
 
@@ -2525,6 +2576,10 @@ function renderEventsCard(season, ro){
       &ldquo;wait, when are keepers due again?&rdquo; in the group chat at midnight.
       Leave one blank and its countdown simply doesn't appear.
       <br><br>
+      Times are read in the <b>time zone below</b>, not in whatever zone the computer
+      publishing the page happens to be set to &mdash; so the countdown ticks to the same
+      moment for everyone, wherever they open it, and the calendar invites land correctly.
+      <br><br>
       <b>The address goes on the public league page</b>, so put in whatever you're
       comfortable with anyone holding the link seeing. Venue alone (&ldquo;Phil's
       place&rdquo;) works fine if you'd rather share the street address in the chat.
@@ -2544,6 +2599,13 @@ function renderEventsCard(season, ro){
         <input type="time" value="${esc(eventTimePart(e.draftAt))}"
           onchange="setEventDatePart(${season}, 'draftAt', 'time', this.value)">
       </div>
+      <label>Time zone</label>
+      <select onchange="setEventField(${season}, 'tz', this.value)">
+        ${["America/Los_Angeles","America/Denver","America/Phoenix","America/Chicago","America/New_York","America/Anchorage","Pacific/Honolulu","Europe/London"].concat(
+            [browserTz()].filter(z => ["America/Los_Angeles","America/Denver","America/Phoenix","America/Chicago","America/New_York","America/Anchorage","Pacific/Honolulu","Europe/London"].indexOf(z) < 0))
+          .map(z => `<option value="${esc(z)}" ${z === eventTz(season) ? "selected" : ""}>${
+            esc(z.replace(/_/g," "))}${z === browserTz() ? " (this computer)" : ""}</option>`).join("")}
+      </select>
       <label>Venue</label>
       <input type="text" placeholder="e.g. Phil's place" value="${esc(e.venue)}"
         onchange="setEventField(${season}, 'venue', this.value)">
@@ -4090,9 +4152,9 @@ function welcomeSection(season){
     ${yahooUrl ? `<p><a class="chip" style="font-size:12px;padding:6px 14px;"
       href="${yahooUrl}" target="_blank" rel="noopener">&#127944; Open our Yahoo league &rarr;</a></p>` : ""}
     <p style="margin-top:14px;"><b>Finding your way around:</b><br>
-    <b>Keeper Values</b> — who costs what this year. Find your name, check your damage.<br>
-    <b>The Keeper Rules</b> — the whole system in ten bullets, plus how to actually
-    set your keepers in Yahoo.<br>
+    <b>Keeper Values</b> — who costs what this year. Find your name, check your damage,
+    and follow the steps at the bottom to lock your two in on Yahoo.<br>
+    <b>The Keeper Rules</b> — the whole system in ten bullets, no legalese.<br>
     <b>League History</b> — every keeper value and every draft, every season we've played.<br>
     <b>Hall of Fame</b> — the champions, the Sacko Wall, and the stats that settle
     arguments (or start new ones).</p>
@@ -4655,6 +4717,10 @@ function buildShareableHTML(){
   .cdblock.past .cdnum{color:var(--chalk-dim); font-size:16px;}
   .cdblock.soon{border-color:var(--gold);}
   .cdcal{display:flex; gap:6px; flex-wrap:wrap; margin-top:9px;}
+  .cdwhere{margin-top:10px; padding-top:9px; border-top:1px solid var(--line);
+    font-size:12px; color:var(--chalk-dim); line-height:1.6;}
+  .cdwhere b{color:var(--chalk);}
+  .cdwhere a{color:var(--gold);}
   .chip.cal{text-decoration:none; border-color:var(--gold-dim); color:var(--gold);
     padding:3px 9px; font-size:10.5px;}
   .chip.cal:hover{border-color:var(--gold);}
@@ -4683,8 +4749,9 @@ function buildShareableHTML(){
     </div>
     <div class="values-detailed">${valuesDetailedSection(season)}</div>
     <div class="values-simple"><div class="grid">${ownerSections}</div></div>
+    ${keeperHowToSection()}
   </div>
-  <div class="tab" id="tab-rules">${keeperRulesSection()}${keeperHowToSection()}</div>
+  <div class="tab" id="tab-rules">${keeperRulesSection()}</div>
   <div class="tab" id="tab-history">${histValuesSection()}${draftHistorySection()}</div>
   <div class="tab" id="tab-hall">${championsSection()}${sackoSection()}${statsSection()}</div>
   <footer>REFERENCE ONLY — CONTACT YOUR COMMISSIONER WITH QUESTIONS</footer>
