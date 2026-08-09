@@ -119,6 +119,10 @@
   .cdblock.past .cdnum{color:var(--chalk-dim); font-size:16px;}
   .cdblock.soon{border-color:var(--gold);}
   .cdcal{display:flex; gap:6px; flex-wrap:wrap; margin-top:9px;}
+  .cdwhere{margin-top:10px; padding-top:9px; border-top:1px solid var(--line);
+    font-size:12px; color:var(--chalk-dim); line-height:1.6;}
+  .cdwhere b{color:var(--chalk);}
+  .cdwhere a{color:var(--gold);}
   .chip.cal{text-decoration:none; border-color:var(--gold-dim); color:var(--gold);
     padding:3px 9px; font-size:10.5px;}
   .chip.cal:hover{border-color:var(--gold);}
@@ -157,9 +161,9 @@
     <p><a class="chip" style="font-size:12px;padding:6px 14px;"
       href="https://football.fantasysports.yahoo.com/f1/536996" target="_blank" rel="noopener">&#127944; Open our Yahoo league &rarr;</a></p>
     <p style="margin-top:14px;"><b>Finding your way around:</b><br>
-    <b>Keeper Values</b> — who costs what this year. Find your name, check your damage.<br>
-    <b>The Keeper Rules</b> — the whole system in ten bullets, plus how to actually
-    set your keepers in Yahoo.<br>
+    <b>Keeper Values</b> — who costs what this year. Find your name, check your damage,
+    and follow the steps at the bottom to lock your two in on Yahoo.<br>
+    <b>The Keeper Rules</b> — the whole system in ten bullets, no legalese.<br>
     <b>League History</b> — every keeper value and every draft, every season we've played.<br>
     <b>Hall of Fame</b> — the champions, the Sacko Wall, and the stats that settle
     arguments (or start new ones).</p>
@@ -167,41 +171,41 @@
     <section class="rules" id="key-dates">
     <h2>2026 &mdash; mark your calendar</h2>
     <div class="cdgrid">
-      <div class="cdblock" data-deadline="2026-08-15T00:00">
-      <small>Keepers due in</small>
+      <div class="cdblock" data-deadline="2026-08-15T07:00:00.000Z">
+      <small>Keeper Deadline</small>
       <div class="cdclock">
         <span class="cdnum" data-unit="d">&mdash;</span><i>d</i>
         <span class="cdnum" data-unit="h">&mdash;</span><i>h</i>
         <span class="cdnum" data-unit="m">&mdash;</span><i>m</i>
         <span class="cdnum" data-unit="s">&mdash;</span><i>s</i>
       </div>
-      <span class="cdwhen">Saturday, August 15, 2026 at 12:00 AM</span>
-      <span class="cdwhen">Miss it and you draft with nobody.</span>
+      <span class="cdwhen">Saturday, August 15, 2026 at 12:00 AM PDT</span>
       <div class="cdcal">
-    <a class="chip cal" href="https://calendar.google.com/calendar/render?action=TEMPLATE&amp;text=2026%20WHS%20keepers%20due&amp;dates=20260815T070000Z/20260815T073000Z&amp;details=Set%20your%20two%20keepers%20in%20Yahoo%20before%20this%20deadline." target="_blank" rel="noopener noreferrer">+ Google Calendar</a>
-    <a class="chip cal" href="data:text/calendar;charset=utf-8,BEGIN%3AVCALENDAR%0D%0AVERSION%3A2.0%0D%0APRODID%3A-%2F%2FWHS%20Fantasy%20Football%2F%2FEN%0D%0ACALSCALE%3AGREGORIAN%0D%0ABEGIN%3AVEVENT%0D%0AUID%3A20260815T070000Z-whsff%40localhost%0D%0ADTSTAMP%3A20260809T220300Z%0D%0ADTSTART%3A20260815T070000Z%0D%0ADTEND%3A20260815T073000Z%0D%0ASUMMARY%3A2026%20WHS%20keepers%20due%0D%0ADESCRIPTION%3ASet%20your%20two%20keepers%20in%20Yahoo%20before%20this%20deadline.%0D%0ABEGIN%3AVALARM%0D%0ATRIGGER%3A-PT1H%0D%0AACTION%3ADISPLAY%0D%0ADESCRIPTION%3A2026%20WHS%20keepers%20due%0D%0AEND%3AVALARM%0D%0AEND%3AVEVENT%0D%0AEND%3AVCALENDAR"
-       download="2026-whs-keepers-due.ics">+ Apple / Outlook (.ics)</a>
+    <a class="chip cal" href="https://calendar.google.com/calendar/render?action=TEMPLATE&amp;text=2026%20WHS%20keeper%20deadline&amp;dates=20260815T070000Z/20260815T073000Z&amp;details=Set%20your%20two%20keepers%20in%20Yahoo%20before%20this%20deadline." target="_blank" rel="noopener noreferrer">+ Google Calendar</a>
+    <a class="chip cal" href="data:text/calendar;charset=utf-8,BEGIN%3AVCALENDAR%0D%0AVERSION%3A2.0%0D%0APRODID%3A-%2F%2FWHS%20Fantasy%20Football%2F%2FEN%0D%0ACALSCALE%3AGREGORIAN%0D%0ABEGIN%3AVEVENT%0D%0AUID%3A20260815T070000Z-whsff%40localhost%0D%0ADTSTAMP%3A20260809T222100Z%0D%0ADTSTART%3A20260815T070000Z%0D%0ADTEND%3A20260815T073000Z%0D%0ASUMMARY%3A2026%20WHS%20keeper%20deadline%0D%0ADESCRIPTION%3ASet%20your%20two%20keepers%20in%20Yahoo%20before%20this%20deadline.%0D%0ABEGIN%3AVALARM%0D%0ATRIGGER%3A-PT1H%0D%0AACTION%3ADISPLAY%0D%0ADESCRIPTION%3A2026%20WHS%20keeper%20deadline%0D%0AEND%3AVALARM%0D%0AEND%3AVEVENT%0D%0AEND%3AVCALENDAR"
+       download="2026-whs-keeper-deadline.ics">+ Apple / Outlook (.ics)</a>
   </div>
+      
     </div>
-      <div class="cdblock" data-deadline="2026-08-16T18:00">
-      <small>Draft night in</small>
+      <div class="cdblock" data-deadline="2026-08-17T01:00:00.000Z">
+      <small>Draft Night</small>
       <div class="cdclock">
         <span class="cdnum" data-unit="d">&mdash;</span><i>d</i>
         <span class="cdnum" data-unit="h">&mdash;</span><i>h</i>
         <span class="cdnum" data-unit="m">&mdash;</span><i>m</i>
         <span class="cdnum" data-unit="s">&mdash;</span><i>s</i>
       </div>
-      <span class="cdwhen">Sunday, August 16, 2026 at 6:00 PM</span>
-      
+      <span class="cdwhen">Sunday, August 16, 2026 at 6:00 PM PDT</span>
       <div class="cdcal">
     <a class="chip cal" href="https://calendar.google.com/calendar/render?action=TEMPLATE&amp;text=2026%20WHS%20Fantasy%20Football%20draft&amp;dates=20260817T010000Z/20260817T040000Z&amp;location=BJ's%20Restaurant%20%26%20Brewhouse%2C%2011101%20183rd%20St%2C%20Cerritos%2C%20CA%2090703" target="_blank" rel="noopener noreferrer">+ Google Calendar</a>
-    <a class="chip cal" href="data:text/calendar;charset=utf-8,BEGIN%3AVCALENDAR%0D%0AVERSION%3A2.0%0D%0APRODID%3A-%2F%2FWHS%20Fantasy%20Football%2F%2FEN%0D%0ACALSCALE%3AGREGORIAN%0D%0ABEGIN%3AVEVENT%0D%0AUID%3A20260817T010000Z-whsff%40localhost%0D%0ADTSTAMP%3A20260809T220300Z%0D%0ADTSTART%3A20260817T010000Z%0D%0ADTEND%3A20260817T040000Z%0D%0ASUMMARY%3A2026%20WHS%20Fantasy%20Football%20draft%0D%0ALOCATION%3ABJ's%20Restaurant%20%26%20Brewhouse%5C%2C%2011101%20183rd%20St%5C%2C%20Cerritos%5C%2C%20CA%2090703%0D%0ABEGIN%3AVALARM%0D%0ATRIGGER%3A-PT1H%0D%0AACTION%3ADISPLAY%0D%0ADESCRIPTION%3A2026%20WHS%20Fantasy%20Football%20draft%0D%0AEND%3AVALARM%0D%0AEND%3AVEVENT%0D%0AEND%3AVCALENDAR"
+    <a class="chip cal" href="data:text/calendar;charset=utf-8,BEGIN%3AVCALENDAR%0D%0AVERSION%3A2.0%0D%0APRODID%3A-%2F%2FWHS%20Fantasy%20Football%2F%2FEN%0D%0ACALSCALE%3AGREGORIAN%0D%0ABEGIN%3AVEVENT%0D%0AUID%3A20260817T010000Z-whsff%40localhost%0D%0ADTSTAMP%3A20260809T222100Z%0D%0ADTSTART%3A20260817T010000Z%0D%0ADTEND%3A20260817T040000Z%0D%0ASUMMARY%3A2026%20WHS%20Fantasy%20Football%20draft%0D%0ALOCATION%3ABJ's%20Restaurant%20%26%20Brewhouse%5C%2C%2011101%20183rd%20St%5C%2C%20Cerritos%5C%2C%20CA%2090703%0D%0ABEGIN%3AVALARM%0D%0ATRIGGER%3A-PT1H%0D%0AACTION%3ADISPLAY%0D%0ADESCRIPTION%3A2026%20WHS%20Fantasy%20Football%20draft%0D%0AEND%3AVALARM%0D%0AEND%3AVEVENT%0D%0AEND%3AVCALENDAR"
        download="2026-whs-fantasy-football-draft.ics">+ Apple / Outlook (.ics)</a>
   </div>
+      <div class="cdwhere">&#128205; <b>BJ's Restaurant &amp; Brewhouse</b><br>11101 183rd St, Cerritos, CA 90703<br>
+    <a href="https://www.google.com/maps/search/?api=1&amp;query=11101%20183rd%20St%2C%20Cerritos%2C%20CA%2090703" target="_blank" rel="noopener noreferrer">Open in Maps &rarr;</a></div>
     </div>
     </div>
-    <p style="margin-top:4px;">&#128205; <b>BJ's Restaurant &amp; Brewhouse</b><br>11101 183rd St, Cerritos, CA 90703 &mdash;
-    <a href="https://www.google.com/maps/search/?api=1&amp;query=11101%20183rd%20St%2C%20Cerritos%2C%20CA%2090703" target="_blank" rel="noopener noreferrer">open in Maps &rarr;</a></p>
+    
   </section>
     <section class="rules" id="payouts">
     <h2>2026 Pot &amp; Weekly Prizes</h2>
@@ -1348,43 +1352,10 @@
       <h2>Yi</h2>
       <table><thead><tr><th>Player</th><th>Keeper Value</th></tr></thead><tbody><tr class=""><td>Lamar Jackson</td><td class="valcell"><span class="val">3</span></td></tr><tr class="ineligible-row"><td>Justin Jefferson</td><td class="valcell"><span class="val zero">0</span> <span class="tag">Ineligible</span></td></tr><tr class=""><td>DJ Moore</td><td class="valcell"><span class="val">7</span></td></tr><tr class=""><td>D'Andre Swift</td><td class="valcell"><span class="val">6</span></td></tr><tr class=""><td>David Montgomery</td><td class="valcell"><span class="val">5</span></td></tr><tr class=""><td>Brock Bowers</td><td class="valcell"><span class="val">7</span></td></tr><tr class=""><td>Jaylen Warren</td><td class="valcell"><span class="val">8</span></td></tr><tr class=""><td>Chase McLaughlin</td><td class="valcell"><span class="val">8</span></td></tr><tr class=""><td>Packers DEF</td><td class="valcell"><span class="val">8</span></td></tr><tr class=""><td>Chris Godwin Jr.</td><td class="valcell"><span class="val">8</span></td></tr><tr class=""><td>Michael Pittman Jr.</td><td class="valcell"><span class="val">8</span></td></tr><tr class=""><td>Rachaad White</td><td class="valcell"><span class="val">8</span></td></tr><tr class=""><td>Chuba Hubbard</td><td class="valcell"><span class="val">4</span></td></tr><tr class=""><td>Kenny Gainwell</td><td class="valcell"><span class="val">8</span></td></tr><tr class="ineligible-row"><td>Isiah Pacheco</td><td class="valcell"><span class="val zero">0</span> <span class="tag">Ineligible</span></td></tr></tbody></table>
     </section></div></div>
-  </div>
-  <div class="tab" id="tab-rules"><section class="rules" id="keeper-rules">
-    <h2>The Keeper Rules</h2>
-    <p>Two keepers each, every keeper costs a pick — here's the whole system, no fine print:</p>
-    <ul>
-      <li><b>Keep up to two players</b> from your end-of-season roster. One or none
-        is fine too.</li>
-      <li><b>The price is the round you drafted him in.</b> Draft a guy in round 3,
-        and keeping him costs your round-3 pick.</li>
-      <li><b>Drafted in round 8 or later — or picked up during the season? He costs
-        a round 8.</b> That's the sleeper discount: Puka Nacua went in round 14 back
-        in 2023 and cost just an 8th to keep.</li>
-      <li><b>The price climbs one round for every year you keep him.</b> An 8th
-        becomes a 7th, a 7th becomes a 6th. Great picks get pricier to hold —
-        that's the point.</li>
-      <li><b>Three years, then back in the pool.</b> Draft year plus two keeps is
-        the max — that's why Puka finally hit the board again. <b>A trade restarts
-        the clock</b> for the new owner; the price stays put.</li>
-      <li><b>First-rounders can't be kept.</b> And once a keeper's price climbs all
-        the way to round 1, his run is over.</li>
-      <li><b>The price sticks to the player.</b> Dropping and re-adding a guy
-        doesn't make him cheap again — and if you drop him and never take him back,
-        he can't be kept at all.</li>
-      <li><b>He has to finish the year on your team — and he has to have played.</b>
-        Rostered the final four weeks of the season, with at least one game played
-        that year. No stashing December pickups, no keeping a guy who never took
-        the field.</li>
-      <li><b>Your two keepers can't cost the same round.</b> One bumps up a round —
-        your choice, or ADP decides for you.</li>
-      <li><b>In Yahoo:</b> the salary next to a player's name is his price in
-        rounds. A <b>0</b> means he can't be kept this year; no number means
-        <b>8</b>.</li>
-    </ul>
-  </section><section class="rules" id="how-to-keep">
+    <section class="rules" id="how-to-keep">
     <h2>How to actually set your keepers</h2>
     <p>Picking them here doesn't count &mdash; this page just tells you what everyone
-    costs. You have to enter them in Yahoo yourself, and they're due <b>Saturday, August 15, 2026 at 12:00 AM</b>.
+    costs. You have to enter them in Yahoo yourself, and they're due <b>Saturday, August 15, 2026 at 12:00 AM PDT</b>.
     It takes about thirty seconds:</p>
     <ol>
       <li><b>Hover &ldquo;My Team&rdquo;</b> in the top nav of our league, and pick
@@ -1504,6 +1475,40 @@
   </svg>
     <p class="notkept">Diagrams, not screenshots &mdash; Yahoo moves things around every
     couple of years, but the three steps have stayed put.</p>
+  </section>
+  </div>
+  <div class="tab" id="tab-rules"><section class="rules" id="keeper-rules">
+    <h2>The Keeper Rules</h2>
+    <p>Two keepers each, every keeper costs a pick — here's the whole system, no fine print:</p>
+    <ul>
+      <li><b>Keep up to two players</b> from your end-of-season roster. One or none
+        is fine too.</li>
+      <li><b>The price is the round you drafted him in.</b> Draft a guy in round 3,
+        and keeping him costs your round-3 pick.</li>
+      <li><b>Drafted in round 8 or later — or picked up during the season? He costs
+        a round 8.</b> That's the sleeper discount: Puka Nacua went in round 14 back
+        in 2023 and cost just an 8th to keep.</li>
+      <li><b>The price climbs one round for every year you keep him.</b> An 8th
+        becomes a 7th, a 7th becomes a 6th. Great picks get pricier to hold —
+        that's the point.</li>
+      <li><b>Three years, then back in the pool.</b> Draft year plus two keeps is
+        the max — that's why Puka finally hit the board again. <b>A trade restarts
+        the clock</b> for the new owner; the price stays put.</li>
+      <li><b>First-rounders can't be kept.</b> And once a keeper's price climbs all
+        the way to round 1, his run is over.</li>
+      <li><b>The price sticks to the player.</b> Dropping and re-adding a guy
+        doesn't make him cheap again — and if you drop him and never take him back,
+        he can't be kept at all.</li>
+      <li><b>He has to finish the year on your team — and he has to have played.</b>
+        Rostered the final four weeks of the season, with at least one game played
+        that year. No stashing December pickups, no keeping a guy who never took
+        the field.</li>
+      <li><b>Your two keepers can't cost the same round.</b> One bumps up a round —
+        your choice, or ADP decides for you.</li>
+      <li><b>In Yahoo:</b> the salary next to a player's name is his price in
+        rounds. A <b>0</b> means he can't be kept this year; no number means
+        <b>8</b>.</li>
+    </ul>
   </section></div>
   <div class="tab" id="tab-history"><section class="rules" id="hist-values">
     <h2>Keeper Values, year by year</h2>
