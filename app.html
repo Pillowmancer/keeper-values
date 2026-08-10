@@ -431,6 +431,15 @@ function uiModal(opts){
     wrap.innerHTML = `<div class="modalcard" role="dialog" aria-modal="true">
       <h4>${esc(opts.title || (opts.confirm ? "Are you sure?" : "Heads up"))}</h4>
       <div class="modalbody">${esc(String(opts.message == null ? "" : opts.message)).replace(/\n/g, "<br>")}</div>
+      ${opts.prompt ? `<div style="margin:12px 0 2px 0;">
+        <input type="password" id="ui-modal-pw" autocomplete="new-password"
+               placeholder="${esc(opts.promptLabel || "Password")}"
+               style="width:100%;padding:8px 10px;font-size:14px;">
+        ${opts.promptAgain ? `<input type="password" id="ui-modal-pw2" autocomplete="new-password"
+               placeholder="${esc(opts.promptAgain)}"
+               style="width:100%;padding:8px 10px;font-size:14px;margin-top:6px;">` : ""}
+        <div id="ui-modal-pwerr" class="pnote" style="color:var(--danger);min-height:16px;"></div>
+      </div>` : ""}
       <div class="modalbtns">
         ${opts.confirm ? `<button class="btn secondary" data-act="no">${esc(opts.cancelLabel || "Cancel")}</button>` : ""}
         <button class="btn" data-act="yes">${esc(opts.okLabel || (opts.confirm ? "Yes, do it" : "OK"))}</button>
@@ -443,21 +452,39 @@ function uiModal(opts){
       resolve(v);
     };
     const onKey = (e) => {
-      if(e.key === "Escape"){ e.preventDefault(); done(false); }
-      else if(e.key === "Enter"){ e.preventDefault(); done(true); }
+      if(e.key === "Escape"){ e.preventDefault(); done(opts.prompt ? null : false); }
+      else if(e.key === "Enter"){ e.preventDefault(); opts.prompt ? accept() : done(true); }
+    };
+    /* In prompt mode the answer is the typed string, and "" is a refusal, not an
+       answer — a blank password must never quietly become a real one. Cancel and
+       Escape resolve null so callers can tell "backed out" from "typed nothing". */
+    const accept = () => {
+      if(!opts.prompt) return done(true);
+      const a = (wrap.querySelector("#ui-modal-pw") || {}).value || "";
+      const b2 = wrap.querySelector("#ui-modal-pw2");
+      const err = wrap.querySelector("#ui-modal-pwerr");
+      const fail = (m) => { if(err) err.textContent = m; };
+      if(!a) return fail("Type a password.");
+      if(a.length < (opts.promptMin || 0)) return fail("At least " + opts.promptMin + " characters.");
+      if(b2 && b2.value !== a) return fail("The two entries do not match.");
+      done(a);
     };
     wrap.addEventListener("click", (e) => {
       const act = e.target && e.target.getAttribute && e.target.getAttribute("data-act");
-      if(act) done(act === "yes");
-      else if(e.target === wrap) done(false);   // click the backdrop = cancel
+      if(act) (act === "yes") ? accept() : done(opts.prompt ? null : false);
+      else if(e.target === wrap) done(opts.prompt ? null : false);   // backdrop = cancel
     });
     document.addEventListener("keydown", onKey, true);
+    const pw = wrap.querySelector("#ui-modal-pw");
     const ok = wrap.querySelector('[data-act="yes"]');
-    if(ok) ok.focus();
+    if(pw) pw.focus(); else if(ok) ok.focus();
   });
 }
 window.uiAlert = (message, title) => uiModal({ message, title, confirm: false });
 window.uiConfirm = (message, title) => uiModal({ message, title, confirm: true });
+/* Resolves the typed string, or null if the commissioner backed out. Never "". */
+window.uiPassword = (message, title, opts) => uiModal(Object.assign(
+  { message, title, confirm: true, prompt: true, okLabel: "Continue" }, opts || {}));
 
 function defaultState(){
   return { season: 2026, players: JSON.parse(JSON.stringify(SEED_PLAYERS)), teamNameMap: {"Pukachu I Choose You":"Phil","Bearly Regal":"Raj","bigganeesh":"Anish","Hawk Tua":"Jay","Koo\u2019s your daddy":"Yi","Only took 10 years":"Nikunj","Ridley Sambar":"Neil","Stop! It Hurts":"Vyas","The man in jahmyr":"Frank","year of the bruins":"Eric"}, leagueMembers: JSON.parse(JSON.stringify(SEED_MEMBERS)), seasons: JSON.parse(JSON.stringify(SEED_SEASONS)), payouts: JSON.parse(JSON.stringify(SEED_PAYOUTS)), currentLeagueId: "536996", events: {}, draftOrders: mergedDraftOrders({}), netlify: { token: "", siteId: "" }, github: { token: "", owner: "", repo: "", syncRepo: "", path: "index.html" } };
@@ -2090,357 +2117,525 @@ function renderPayoutsPanel(){
    its standings along and every list below updates itself. */
 
 const SACKO_QUIPS = [
-  "Last place. First in our hearts, dead ass last in everything that counts.",
-  "Drafted with the confidence of a man who has never once been right in his life.",
-  "The draft board still hasn't recovered from round 3. Neither has the league. Neither has their marriage, probably.",
-  "Called it a masterclass on the way out of the draft. It was a goddamn crime scene.",
-  "Their draft strategy is under federal investigation, and honestly, it should be.",
-  "Reached so hard in round 2 they pulled every muscle in the room, including other people's.",
-  "The mock drafts saw this coming and still weren't ready for how bad it'd get for real.",
-  "Drafted a dynasty for a league that does not exist, in a sport they clearly don't watch.",
-  "Nailed pick one. Spent the next fourteen rounds actively sabotaging it like it owed them money.",
-  "There's a draft-day photo of everyone smiling. It should be inadmissible in court.",
-  "Brought a cheat sheet. It was for a different year. Possibly a different, dumber sport.",
-  "Took a QB in round 2 and a beating in every round after.",
-  "The room went dead silent after that pick. Silence was the kind review.",
-  "Best player available, worst decision-making available, and they chose the second one on purpose.",
-  "Ran the draft on autopilot and somehow still underperformed the autopilot. That's a special kind of talent.",
-  "Skipped the prep meeting. Attended the consequences in full, front row, no popcorn.",
-  "The autodraft bot would've done less damage and it doesn't even care about winning.",
-  "They weren't beaten by the algorithm. They were the algorithm's cautionary tale.",
-  "Studied film all summer. Wrong sport, wrong league, possibly the wrong century.",
-  "Left the draft for wings, came back to a roster of nothing but tight ends and shame.",
-  "Preparation met opportunity and opportunity filed a restraining order.",
-  "Read one 2019 preview magazine and called it a war room. It was a bathroom.",
-  "The draft plan fit on a napkin. The napkin was also blank, and slightly damp.",
-  "Trusted the rankings. The rankings were a prank call from a burner phone.",
-  "Did the homework, then turned in somebody else's, with the wrong name crossed out badly.",
-  "A bold plan executed by a man with no plan and worse instincts than his dog.",
-  "The strategy binder was mostly takeout menus and one very old grudge.",
-  "Winged it in August. Paid it off, with interest, straight through January, in cash.",
-  "Drafted a kicker in round 9 on purpose. That's not prep, that's surrender with paperwork.",
-  "The waiver wire took one look at their roster and blocked the damn number.",
-  "First on waivers every single week, dead last where anyone actually keeps score.",
-  "Dropped the wrong guy so often it became their whole personality by Halloween.",
-  "The waiver wire was a revolving door and every trip through made it worse, somehow.",
-  "Blew the FAAB budget by October. Blew the whole season by November. Efficient, in a bad way.",
-  "Added him, dropped him, added him again — that player has a restraining order drafted and notarized.",
-  "Chased last week's points all year and never once caught up to them. Not once. All year.",
-  "Every pickup was breaking news to absolutely nobody. The internet already knew and had moved on.",
-  "The wire giveth, and they gave it right back with a bow and an apology card.",
-  "Claimed every free agent in the league except the one that actually mattered.",
-  "Ran the waiver wire like a clearance rack — grabbed everything, needed none of it, kept the damn receipts.",
-  "Every single add had already had his big game. They were buying used fireworks after the show.",
-  "The one guy they never picked up turned out to be the only good one. Of course he did.",
-  "Waiver priority number one, roster priority somewhere south of the kicker.",
-  "Streamed defenses straight into a hole and kept digging with both hands.",
-  "Living proof you can check your lineup every single week and still be this bad at it.",
-  "Set the lineup by vibes. The vibes owed everyone a formal apology by October.",
-  "Started the bye-week guy. Twice. In the same damn season. That takes real commitment.",
-  "Their optimal lineup won the week. Their actual lineup never got the memo, or read it and disagreed.",
-  "Benched the breakout, started the bust, called it a gut feeling. The gut was full of shit.",
-  "The lineup button was right there the whole time. Right. There. One click.",
-  "Sat their best player on his career day. A proud tradition by week six.",
-  "Every hunch was wrong and there were an alarming, almost impressive number of hunches.",
-  "Left the hurt guy starting so long he should get a cut of the medical bill.",
-  "Their gut feelings need a second opinion, a lawyer, and possibly an exorcist.",
-  "Made the right call exactly once, in week 18, when it changed absolutely nothing.",
-  "Start-sit decisions brought to you by a coin that only lands on regret.",
-  "The only consistent starter on this roster all season was crushing disappointment.",
-  "Lineup locked at kickoff. Judgment locked up weeks before that, and threw away the key.",
-  "Played matchups like the matchups owed them money and skipped town.",
-  "Left more points on the bench than most teams score outright. That's not bad luck, that's a lifestyle choice.",
-  "The bench outscored the starters so often it deserved its own damn captain's patch.",
-  "Built an absolute super team and then benched every last piece of it, on purpose, apparently.",
-  "Their bench made the playoffs. Their starters filed for unemployment.",
-  "A monument to points that never, ever counted for a single thing.",
-  "The bench was electric. The starting lineup was a rolling blackout, statewide.",
-  "Kept the good players safe, warm, and completely useless on the sideline all year long.",
-  "If bench points counted this would be a championship banner instead of a punchline.",
-  "Sixty bench points isn't a fluke. It's a full-blown identity crisis with a jersey number.",
-  "Protected their studs from the horror of actually being allowed to play football.",
-  "The bench is owed back pay, hazard pay, and a written apology.",
-  "Managed the bench like an absolute genius. Managed everything else like a hostage negotiation gone bad.",
-  "Their kicker was the MVP, and that sentence alone should embarrass everyone involved.",
-  "Got outscored by their own kicker three separate times. The kicker felt genuinely bad about it.",
-  "The defense put up negative points and somehow wasn't even the worst thing that happened that week.",
-  "Rode one kicker's hot streak straight into tenth place. Impressive, in a deeply pathetic way.",
-  "Carried two kickers for a month for reasons nobody, including them, can explain under oath.",
-  "Their defense allowed 40 points and their owner allowed it again the very next damn week.",
-  "Missed a 30-yard field goal and it was still the highlight of the whole roster's season.",
-  "Drafted a defense in round 6 to lock in last place with real, admirable conviction.",
-  "The special teams weren't special. They were, tragically, just the regular teams, and worse.",
-  "A kicker-dependent offense in this economy. Bold. Bad, but bold as hell.",
-  "Their best waiver move all season was a backup kicker's backup kicker.",
-  "Points from kickers: solid. Points from literally anyone else: an urban legend, unconfirmed.",
-  "Rostered two defenses and somehow generated a combined zero defense between them.",
-  "Even the kicker asked for a trade. That's how you know it's genuinely bad.",
-  "A season so rough the bye weeks flat-out outscored the actual starters.",
-  "The injury report basically was their roster. Same damn names, different column.",
-  "Every excuse was technically legitimate. There were just about forty of them, filed alphabetically.",
-  "Blamed the schedule, the refs, the weather, and one specific squirrel, by name, under oath.",
-  "Their stars got hurt, their backups got hurt, and their excuses stayed in perfect goddamn health.",
-  "The trainer's room saw more of this roster than the starting lineup ever did.",
-  "Built an entire fantasy team around one guy's hamstring. Lost the hamstring bet badly.",
-  "Questionable, doubtful, out — also an accurate description of their draft grades in order.",
-  "The medical tent had a loyalty punch card going with this roster. Free tenth punch: a trophy nobody wants.",
-  "Everything that could go wrong went wrong, then several things that shouldn't be possible went wrong too.",
-  "Bad luck explains half the season. Bad decisions cheerfully explain the other, worse half.",
-  "Cursed? Maybe. Bad at this? Absolutely, unambiguously, catastrophically yes.",
-  "Their comeback player of the year never actually came back. He's still out there somewhere, hiding.",
-  "An entire season built on 'once everyone's healthy.' Nobody got healthy. Not one damn person.",
-  "The only thing on this roster that stayed healthy all year was the loss column.",
-  "Lost the weeks that mattered and, for good measure, most of the ones that didn't either.",
-  "Started the league's top scorer six different weeks and still finished last. That takes real, dedicated effort.",
-  "The schedule was brutal, sure. The roster brought its own brand of brutal, free of charge.",
-  "Lost every close game and, somehow, several that weren't close at all.",
-  "Ran into every opponent's best week of the year while turning in their own dead-worst.",
-  "If they'd played the median score, they'd have lost to that too. Lost to a number. A plain number.",
-  "Strength of schedule: rough. Strength of roster: purely theoretical, unproven, hypothetical.",
-  "Unlucky in the close ones, thoroughly and completely earned in the blowouts.",
-  "The tiebreakers never mattered because it was never, ever close enough to need them.",
-  "Their points-against was historic. Their points-for filed a formal apology letter.",
-  "Every week was somebody's season-high total. Somebody who happened to be playing them.",
-  "The schedule makers owe this team an apology. A small, quiet, deeply insincere one.",
-  "Beat the season projections exactly zero times. A perfect record, technically, of failure.",
-  "The experts were wrong about this team. So was this team, about themselves, constantly and confidently.",
-  "Projected for a playoff run. Delivered a rounding error wearing a jersey.",
-  "Trusted the expert rankings straight off a cliff and asked for a second opinion halfway down.",
-  "Underperformed projections that were already written with a healthy dose of pity.",
-  "The analytics said no. They heard yes, loudly, and started him anyway, out of spite.",
-  "Started every single 'sneaky sleeper' the internet suggested. The internet lied every single time.",
-  "Followed expert advice off a cliff, then wrote the expert a furious email on the way down.",
-  "The projections weren't the problem. Believing them with religious, unshakable conviction was.",
-  "A pure boom-or-bust roster that mostly, overwhelmingly, chose bust every damn week.",
-  "Their sleepers slept all season. Deep, restful, thoroughly undisturbed sleep.",
-  "The breakout candidates broke, alright — just not the good kind of break.",
-  "Every dart throw missed the board, hit the wall, and left a hole they now have to explain to the landlord.",
-  "Won the trade on paper and lost the entire plot in practice.",
-  "Every trade they made was a charitable donation to the other guy's roster, tax-free.",
-  "Traded for a big name. The name retired mid-season out of pure secondhand embarrassment.",
-  "Their trade deadline masterstroke stroked in exactly the wrong direction.",
-  "Sold low, bought high, and had the audacity to ask for a receipt afterward.",
-  "The trade calculator said absolutely not. They said 'trust me' and hit send anyway, the fools.",
-  "Fleeced themselves in a two-team trade. No accomplice required, no help needed, all solo work.",
-  "Made one trade all year and it's still being roasted in the group chat with a straight face.",
-  "Negotiated hard for the objectively worse half of every single deal on the table.",
-  "Their trades were basically charity work, minus the tax write-off and the good feeling.",
-  "Acquired a superstar the exact week his superstardom quietly, permanently expired.",
-  "Their trade offers were so bad the whole damn league bonded over laughing at them together.",
-  "Buy low, sell lower — a financial strategy nobody with sense should ever try at home.",
-  "The only deadline move that actually landed all season was the move straight into last place.",
-  "Next year's keeper plan: hope, a prayer, and a round-8 dart thrown blindfolded.",
-  "Kept the wrong guy with the full, unshakable conviction of a man who was dead wrong.",
-  "Spent three weeks agonizing over a keeper decision and still managed to subtract value.",
-  "The sleeper they hit on got kept by somebody else. Twice. In two different, humiliating years.",
-  "Drafted sleepers so deep in the pool they drowned before they even woke up.",
-  "It's a keeper league, and they kept... that. That's the actual choice they made, sober.",
-  "Next year's discount is just this year's disappointment wearing a lower price tag.",
-  "Their round-8 steal turned around and stole from them instead, with interest.",
-  "Passed on the breakout star to keep the guy who was already burnt out and done.",
-  "Keeper value: maximized. Actual point production: an unconfirmed rumor at best.",
-  "The three-year keeper plan lasted roughly three weeks before it fell apart completely.",
-  "Kept a legend exactly one year past his legendary window slamming shut.",
-  "Their best keeper this year was hindsight, and hindsight isn't roster-eligible, unfortunately.",
-  "Scouted the perfect sleeper all summer, then dropped him in week 4 out of pure panic.",
-  "The keeper rules aren't why they're bad. They're just one more reason to keep being bad.",
-  "Their best decision all season was paying the buy-in before the deadline. It's all downhill after that.",
-  "The buy-in was the single financial commitment they honored all year, bless them.",
-  "Zero weekly wins. The prize pool doesn't even know their damn name.",
-  "Donated a full buy-in straight to their friends' happiness. Again. Same as every year.",
-  "The most expensive participation award currently in circulation in this entire league.",
-  "Their return on investment needs a support group and possibly a court-appointed lawyer.",
-  "Paid a hundred bucks for four months of humbling character development. Worth it? Ask them in ten years.",
-  "The prize pool sends its sincerest thanks for the annual, reliable, guaranteed contribution.",
-  "An annual patron saint of everyone else's winnings, canonized every single December.",
-  "Their wallet took the L before the roster even had a fair chance to.",
-  "Bought in with dreams, cashed out with a hard lesson and an empty bank account.",
-  "The weekly top-score prize was an urban legend to them all season, never once confirmed real.",
-  "A hundred dollars down, zero regrets claimed publicly, several regrets very much present privately.",
-  "Committed to the rebuild since the opening kickoff of week one, no exceptions since.",
-  "Checked the app every single day. The app, tragically, could not return the favor even once.",
-  "So active on the waiver wire, so completely, utterly absent from the standings.",
-  "All that effort deserved a much better roster. The roster respectfully, violently disagreed.",
-  "Showed up to every trash-talk thread with a last-place record and absolutely zero shame.",
-  "The group chat MVP and the standings' dead-last player, same guy, same season, same energy.",
-  "Their engagement was elite. Their actual output was, unfortunately, this whole mess.",
-  "Never missed a lineup deadline. Never once made a lineup that actually mattered.",
-  "Fully present for every single loss. That kind of loyalty deserves recognition, maybe therapy too.",
-  "Managed this team like a second job and got fired from both, metaphorically and repeatedly.",
-  "Watched every snap of a lost cause with real devotion. Genuinely admirable. Genuinely, deeply sad.",
-  "Most screen time in the league, fewest wins in the league. A modern tragedy in two stats.",
-  "Read every injury report and started the guy in the walking boot anyway. Bold. Stupid, but bold.",
-  "Their season diary reads like seventeen chapters titled 'so close,' minus any actual closeness.",
-  "Enthusiasm: playoff caliber. Every other measurable stat: this, right here, this exact season.",
-  "Next year starts now. Same as it started last year. Same as it'll start the damn year after that.",
-  "Rebuilding since the Obama administration, contending approximately never, on schedule.",
-  "Their championship window is a photograph of a window, framed, hung on a wall, nowhere near real.",
-  "'This is my year' — they've said it since high school, and high school called, it wants a formal apology.",
-  "The future is bright, allegedly. The present finished dead last, definitely, no allegedly about it.",
-  "Already planning next year's draft strategy. Bless their hopeless little heart.",
-  "Optimism fully intact. The roster, less so, structurally, on a molecular level.",
-  "This was supposed to be the year. It was, categorically, definitively, not the year.",
-  "Their five-year rebuild plan is somehow, impossibly, entering year nine.",
-  "Hope springs eternal around here. Points, notably, do not spring anywhere.",
-  "Next season's champion, according to a source with zero credibility whatsoever: themselves.",
-  "The offseason is, hands down, their best season by a wide and embarrassing margin.",
-  "Big things coming next year, reportedly. Sources close to the situation: also them, again.",
-  "Historians will study this roster for decades and never find a satisfying goddamn explanation.",
-  "A season that will be remembered, mostly as a cautionary tale told to frightened children.",
-  "Their campaign this year shall be sung about in exactly zero songs, in any language, ever.",
-  "Generations from now, long after we're all gone, this record will still say dead last.",
-  "The league archive formally requested we stop submitting this team's box scores. Formally.",
-  "A cautionary tale that happens to also, unfortunately, wear a jersey.",
-  "Museums have expressed interest in this roster. Specifically the wax museum. Specifically the horror wing.",
-  "Their season belongs to the ages. The dark ages, mostly, complete with plague references.",
-  "Scholars have officially designated this team the control group for the entire experiment.",
-  "An epic in the classical sense: extremely long, and everybody dies of embarrassment by the end.",
-  "The stuff of legend, assuming legends are mostly about quietly and thoroughly losing your ass off.",
-  "Future commissioners will use this exact season as a cautionary teaching example, unpaid.",
-  "Carved permanently into league history, right at the very bottom of the damn page.",
-  "A dynasty, technically. Just the losing kind, the embarrassing kind, the kind nobody wants.",
-  "The record books had to open an entirely new chapter for this. It's called 'the back.'",
-  "Scientists have confirmed it: statistically, somebody has to finish last. It's still hilarious it was them.",
-  "This season needs a software patch, a full system restore, and possibly a hug.",
-  "Ran the simulation ten thousand times. Last place in 9,998 of them. It crashed twice, out of pity.",
-  "Their roster was less a team and more a beta test for organized, itemized disappointment.",
-  "Error 404: points not found. Please try again next season, if you dare.",
-  "The analytics department quietly resigned somewhere around week seven and never came back.",
-  "A season that buffered at ninety-nine percent and simply never, ever loaded, no matter how long you waited.",
-  "This team needed a full reboot by week three and a proper burial by week ten.",
-  "Machine learning took one look at this roster and refused to learn a single damn thing from it.",
-  "The spreadsheet reportedly caught fire, and honestly, it was an act of mercy, not an accident.",
-  "Tried turning the season off and back on again. It stayed off. Permanently, defiantly off.",
-  "Their in-season strategy was a Magic 8-Ball, and even it eventually started holding a grudge.",
-  "Fully data-driven, straight into a ditch, headlights on the whole miserable way down.",
-  "The model predicted regression to the mean. The model, once again, badly underestimated everything.",
-  "Bandwidth: unlimited. Points: aggressively, mysteriously, personally throttled all season long.",
-  "Their season's performance review literally said 'meets expectations.' The expectations were this bad.",
-  "Middle management of the standings. Except somehow below middle. Somehow, impossibly, lower.",
-  "Circled back on every single loss. Touched base with defeat on a recurring weekly basis.",
-  "The quarterly numbers were bad in all four quarters, with no seasonality to blame it on.",
-  "Per their last update, the roster was 'fine.' Per the standings, it emphatically, catastrophically was not.",
-  "Their KPIs were mostly Ks, as in strikeouts — wrong sport, same brutally accurate result.",
-  "Restructured the roster four separate times. The org chart was the actual problem, every single time.",
-  "A full pivot-to-losing strategy, and credit where it's due, executed absolutely flawlessly.",
-  "Stakeholder confidence is low. The stakeholders are also, notably, laughing their asses off.",
-  "The post-mortem meeting on this season needed its own separate, deeply uncomfortable post-mortem.",
-  "Filed the entire season under 'learning opportunities' and walked out with dignity mostly intact.",
-  "Full synergy achieved: every single part of this roster failed in perfect, coordinated unison.",
-  "Promoted to sacko. Congratulations. It came with no raise and one hell of a demotion in pride.",
-  "Cooked all season long. Served it raw, cold, and directly on the floor.",
-  "A recipe with every single ingredient wrong and the oven left completely, defiantly off.",
-  "This season sat in the microwave of history and came out somehow still ice cold in the middle.",
-  "Chef's kiss, if the chef had somehow missed the entire plate and hit the wall instead.",
-  "The secret sauce was just regret, served at room temperature, free of charge, no tip expected.",
-  "Half-baked takes, fully baked losses, served together on one crowded, embarrassing plate.",
-  "Brought a spoon to the draft and called it 'a fork in the road.' It was neither, it was useless.",
-  "Burnt the toast, blamed the bread, then drafted the toaster again next year out of pure spite.",
-  "A full buffet of bad decisions, and yes, they absolutely went back for humiliating seconds.",
-  "The season simmered, boiled over, and set off the smoke alarm sometime around October.",
-  "Their hot takes all came straight out of the fridge, ice cold, stale, and a little bit expired.",
-  "The menu promised a championship. The kitchen delivered dead last, no substitutions, no refunds.",
-  "Pulled the goalie in week two and conceded straight through January. Wrong sport, same disaster energy.",
-  "Their season went to the replay booth for review. The call stood: last, confirmed, no challenges remaining.",
-  "A full rebuilding year, in a league with absolutely no tanking incentive whatsoever. Impressive commitment.",
-  "Missed the playoffs by a margin visible from low earth orbit, with a decent telescope.",
-  "Welcome to the relegation zone. We don't technically have one. We might now, just for them, specifically.",
-  "Played all seventeen weeks in what can only be described as extended, uninterrupted garbage time.",
-  "Their season highlight reel is one single clip, and it's of the draft-day snacks.",
-  "The franchise tag went, appropriately, to their excuse-maker-in-chief, effective immediately.",
-  "The participation ribbon has officially been retired in their honor. There will be no others issued.",
-  "Their victory lap was really just a walk of shame wearing slightly nicer, more expensive shoes.",
-  "They peaked during warmups. Actual pregame warmups. Before a single snap was played.",
-  "An away game, somehow, in their own league, from their own damn living room couch.",
-  "Fired the coach, the GM, and the owner this offseason. All three positions were, in fact, held by one guy.",
-  "Every league needs a floor to stand on. Thanks for holding it up all season, structurally speaking, sincerely.",
-  "Somewhere out there, a participation trophy has this exact name engraved on it, in permanent marker.",
-  "Started the season with a real plan. The plan did not survive first contact with September.",
-  "The standings appear to be ranked alphabetically by effort this year. Coincidence? Absolutely not.",
-  "Consistency is generally considered a virtue. Consistently dead last is more of a lifestyle brand.",
-  "It takes real, dedicated, sustained effort to avoid this many points across an entire damn season.",
-  "Their ceiling was, at best, somebody else's floor on a genuinely bad week.",
-  "Rock bottom called looking for company. They didn't just answer, they moved in and redecorated.",
-  "Aggressively mediocre through October, then aggressively, proudly, unapologetically last by December.",
-  "The bar was already on the ground and somehow they still showed up with a shovel and dug further.",
-  "Not the hero this league needed, but absolutely the punchline it deserved and earned in full.",
-  "They came, they saw, they finished tenth. Veni, vidi, whatever the hell the opposite of vici is.",
-  "The good news: nowhere to go but up. Same good news, delivered annually, right on schedule, like clockwork.",
-  "Bad seasons happen to good people. This one, notably, went out of its way to find them specifically, by name.",
-  "A certified masterclass in almost, presented without a single actual accomplishment to show for it.",
-  "Their season was a drought with the occasional cruel, teasing drizzle that never turned into rain.",
-  "A slow-motion avalanche, viewable weekly, in high definition, for the whole league's amusement.",
-  "Getting struck by lightning would've made for a better story. This was just a very long, boring rain delay.",
-  "The forecast called for a sixty percent chance of losses. It rained losses, all season, and nobody had an umbrella.",
-  "Autumn arrived, the leaves fell, and so did they. Mostly them. Overwhelmingly, embarrassingly them.",
-  "A garden where, somehow, only the excuses ever grew tall and healthy and thick.",
-  "Their playoff hopes migrated south sometime in October and were never, ever seen again, presumed dead.",
-  "Extinct by November, fully fossilized by the season finale, ready for the museum.",
-  "The tide went out on this season and took the entire roster with it, gently, without a single protest.",
-  "Hibernate through an entire season and it ends up looking almost exactly like this. Almost.",
-  "Their momentum, such as it was, functioned mostly as a sad little tumbleweed rolling nowhere.",
-  "Winter came early this year. Specifically for them. Specifically, cruelly, in September.",
-  "Nature is healing, apparently, everywhere except this one particular, cursed roster.",
-  "Muted the group chat in October. The group chat, in fairness, completely understood why and let it go.",
-  "Their trash talk aged like milk left in a hot car with the windows rolled all the way up.",
-  "Sent 'this is finally my year' back in August. That screenshot is framed and being read aloud right now, out loud, to everyone.",
-  "The group chat's thoughts and prayers were, genuinely, sincerely, with them all season long.",
-  "Typed out a comeback speech and deleted it, four separate humiliating months in a row.",
-  "Went completely quiet after week six. The standings did all the talking after that, loudly.",
-  "Every meme posted in that chat this year was, in some structural way, load-bearing on this roster's total collapse.",
-  "Predicted a podium finish in the preseason poll. Got a podium finish. Wrong end of it entirely, dead wrong.",
-  "Their victory speech remains safely in drafts, unsent, unread, exactly where it belongs, forever.",
-  "Replied 'this is rigged' to the final standings. The math politely, mercilessly, brutally replied back.",
-  "The league's single most quotable season this year, and every single quote is for the absolute worst reason.",
-  "They talked the talk all summer. The roster, come December, could barely crawl the crawl, on its knees.",
-  "A grown-ass adult lost to a fantasy football team named after a pun. Sit with that for a second.",
-  "Their draft-day trash talk wrote checks the roster spent the rest of the year furiously bouncing.",
-  "Somewhere there's a highlight video. It's forty seconds long and mostly just the intro music.",
-  "They didn't rebuild. They didn't tank. They just, somehow, naturally, organically arrived here.",
-  "The commissioner had to double-check the standings weren't a typo. They were not, sadly, a typo.",
-  "A performance so bad it briefly made everyone else's team look competent by comparison. Thanks for that, genuinely.",
-  "Their bye weeks were, statistically, some of their better weeks of the season. Let that sink in fully.",
-  "Drafted like they had a plan. Played like the plan got left in the other room, and stayed there.",
-  "The waiver claim history reads like a diary nobody in their right mind asked to read.",
-  "They set a lineup every week with the confidence of someone who's never once been right about it, not once.",
-  "Ended the year with more filed excuses than recorded wins. It wasn't close, either. Not remotely.",
-  "Somehow lost a game they led by thirty points at halftime. That takes a real, specific, rare kind of talent.",
-  "Their bench this year deserved its own separate standings entry, and honestly, it would've finished higher.",
-  "A team built entirely on upside. The upside, tragically, never once showed up to work, not one single time.",
-  "Their draft grade was an A-minus in August and a hard-earned, well-deserved F by Thanksgiving.",
-  "They didn't just lose. They lost with style, with running commentary, with a whole supporting cast of bad decisions.",
-  "The kind of season that makes you check if the schedule generator has personal beef with somebody.",
-  "Their team name promised chaos. Their record delivered on it, in the absolute worst possible direction.",
-  "Every 'trust the process' post in the chat aged like it was written specifically to be screenshotted later and mocked.",
-  "They finished the year mathematically eliminated from relevance sometime around week five. Week five.",
-  "A full season of near-misses that somehow, impressively, never actually got near a single damn thing.",
-  "Their draft-day war room was, by all credible accounts, a folding chair and a bag of chips.",
-  "They out-hustled the waiver wire and still finished behind teams that barely touched it all year.",
-  "The season had a beginning, a middle, and an end, and none of the three parts went well. Not one.",
-  "Somewhere in a parallel universe this exact roster wins it all. This, unfortunately, is not that universe.",
-  "They've been rebuilding so long the rebuild has its own separate rebuild now, with its own budget.",
-  "A team that peaked in the group chat and nowhere else, not once, all season, all year, ever.",
-  "Their season-long bet on 'positive regression' never once paid out. The house, as always, took every dime.",
-  "They didn't just miss the playoffs. They missed them by a distance that genuinely required a map.",
-  "Every close loss this year had a version where they win. That version doesn't exist. This one, sadly, does.",
-  "The roster had talent on paper. The paper, unfortunately, never once got sent in to actually play.",
-  "They spent more time explaining the loss than most teams spend celebrating an actual win.",
-  "A season-long audition for 'what not to do,' and they nailed every single scene of it, flawlessly.",
-  "Their bold predictions in August were, in hindsight, just very confident, very expensive fiction.",
-  "They didn't lose the league. The league simply, repeatedly, mercilessly happened to them all season.",
-  "The kind of year where even the highlight reel needs a content warning slapped on the front.",
-  "They treated the waiver wire like a suggestion box and every suggestion kept getting rejected, firmly.",
-  "A full season built on hope, and hope, it turns out, does not score a single fantasy point.",
-  "They led the league in something this year. It just wasn't anything anyone in their right mind wants to lead in.",
-  "Their team's motto should've been 'close enough,' except it genuinely, catastrophically wasn't, not even once.",
-  "A roster full of 'if he stays healthy' guys who, spoiler alert, did not stay healthy. Not one of them.",
-  "They finished the year with a losing record against their own bench. That is not a typo. Read it again.",
-  "The kind of season where the group chat runs out of new ways to say 'yikes' by week eight.",
-  "They didn't just underperform. They set a new, personal, deeply specific bar for underperforming.",
-  "Their season is now the unit of measurement other bad seasons get compared against. Congratulations.",
-  "A team that somehow made 'last place' feel like an achievement, just for the sheer commitment to it.",
-  "They lost with such reliable consistency it stopped feeling like bad luck and started feeling like a brand identity.",
-  "The playoffs sent their regrets. The regrets were mutual, thoroughly earned, and signed in blood."
+  "Drafted from a hospital waiting room. Somehow that wasn't the excuse.",
+  "Set the lineup during a work meeting, with the confidence of a man about to get promoted for it. He did not get promoted.",
+  "Had a whole draft strategy. Fell apart at pick two, same as his 2019 New Year's resolutions.",
+  "Missed the waiver deadline because of a kid's soccer game. The kid's team also lost.",
+  "Autodrafted while asleep and still out-drafted his awake self from last year, which says less about the bot and more about him.",
+  "Texted 'trust the process' in August. The process filed a restraining order by October.",
+  "Kept checking his lineup at red lights all season. Should've kept his eyes on the road and his tight end on the bench.",
+  "Drafted like a man with a 401k and played like one who's never seen a bank statement.",
+  "His bye-week research consisted of one Reddit thread and a vibe.",
+  "Started his kicker over his RB1 'as a joke.' The joke had the last laugh, and it wasn't him.",
+  "Traded his best player for a bag of chips, emotionally speaking.",
+  "Set a lineup so bad it should legally require a damn permit.",
+  "His draft board was a paper towel with three names on it, one of them misspelled.",
+  "Benched his top scorer to 'ride the hot hand.' The hot hand went 2 for 14.",
+  "Missed his own draft. Sent a proxy. The proxy also lost.",
+  "Every year he says this is the year. Every year 'this year' files for bankruptcy by Thanksgiving.",
+  "Drafted with a two-year-old on his lap. The two-year-old's picks aged better.",
+  "Waived a player in Week 3 who then had the best season of his career elsewhere. Twice.",
+  "His trade offers read like a ransom note nobody wanted to pay.",
+  "Forgot he had a bye week starter until the scores posted. Found out live, on his couch, in front of everyone.",
+  "Set the same losing lineup four weeks running out of what can only be described as spite for himself.",
+  "His halftime adjustments were just opening a new beer.",
+  "Drafted for upside. Received only downside, gift-wrapped, every single week.",
+  "Called his shot in the group chat in Week 1. The group chat has receipts, and they are brutal.",
+  "His 'sleeper pick' is still sleeping. Nobody's checked on him since Labor Day.",
+  "Ran his fantasy team like his in-laws run Thanksgiving: with confidence, and no plan whatsoever.",
+  "Somehow lost a game he was winning by thirty at the half. That's not bad luck, that's a hobby.",
+  "His draft-day trash talk had more preparation than his actual roster.",
+  "Season ticket holder to his own bench's highlight reel.",
+  "Drafted a rookie 'for the long haul.' The long haul lasted four games and a shrug.",
+  "Genuinely thought bye weeks were a suggestion.",
+  "His lineup decisions have the accuracy of a dartboard thrown from another room.",
+  "Traded away his kicker for a WR3 and somehow still lost the trade.",
+  "The one week he didn't check his lineup was, of course, the one week it mattered.",
+  "His fantasy team peaked at the photo before the draft.",
+  "Set his lineup with his eyes closed. Statistically, that would have been an improvement most weeks.",
+  "Argued with the refs of a game he wasn't even watching, about a player he didn't even start.",
+  "His whole season can be summed up as 'well, that was a shitshow.'",
+  "Picked players by jersey color. The jerseys let him down.",
+  "His injury luck is the only consistent thing about his roster.",
+  "Somewhere out there is a man who trusted this roster in a preseason mock draft. He no longer speaks to us.",
+  "Drafted a stud, watched him get hurt in the preseason, and never recovered emotionally or statistically.",
+  "His waiver wire strategy is 'add whoever scored yesterday.' It has never once worked.",
+  "He read the projections, understood them, and did the opposite on purpose. We think.",
+  "His bench this year had more fantasy points than most playoff teams. His starters did not.",
+  "Missed a game-winning start because he was, and this is true, at his own kid's birthday party.",
+  "Predicted a championship in the group chat. Got a different kind of ring: the one around the toilet after this season.",
+  "His draft-day nerves were about which snacks to bring, not which players to pick, and it showed.",
+  "Managed his fantasy team the way he manages his diet: with great intentions and zero follow-through.",
+  "His QB threw more picks than his GM did good ones.",
+  "Somehow drafted two kickers before a single wide receiver.",
+  "His roster construction strategy can only be described as 'vibes and regret.'",
+  "Set his lineup an hour late because he was stuck in traffic, missing nothing important, just his entire team's performance.",
+  "His playoff hopes died so quietly nobody even noticed the funeral.",
+  "Drafted his favorite childhood player, three years past his prime, out of pure nostalgia. Nostalgia does not score points.",
+  "His fantasy team and his fantasy football knowledge parted ways somewhere around Week 4.",
+  "Made a bold trade in Week 2 that the entire league is still discussing in hushed tones.",
+  "His start-sit process is a coin flip that somehow lands on its edge, every single time.",
+  "He drafted, forgot he drafted, and rediscovered his own team like an archaeological dig gone wrong.",
+  "His season had more twists than a soap opera and a fraction of the ratings.",
+  "Somehow benched the correct player on the one week it would've actually mattered, and started him every other week for no reason.",
+  "His fantasy team is a cautionary tale being told at drafts for years to come.",
+  "Set a lineup that a coin could have beaten, and the coin would have felt bad about it.",
+  "His draft prep was one YouTube video, watched at 2x speed, half-asleep.",
+  "Genuinely believed this was a 'building year.' It was, in the sense that it built character. Nothing else.",
+  "His fantasy strategy peaked the moment he hit 'autodraft.'",
+  "Somehow made every correct read a week too late, all season long.",
+  "His trade deadline moves were less 'savvy GM' and more 'garage sale, everything must go.'",
+  "Left his QB on bye for two straight weeks. The second time was not an accident, it was a lifestyle.",
+  "His confidence never once matched his roster's actual output, and that gap is the real, ugly story of this season.",
+  "His fantasy team is proof that hope is not, in fact, a damn strategy.",
+  "Somewhere, a computer model is still trying to explain this season and has simply given up.",
+  "His draft picks aged like milk left out for the group chat to smell.",
+  "He treated his waiver budget like Monopoly money, and spent it just as wisely.",
+  "His lineup this year had main character energy and background character results.",
+  "Drafted with a system. The system was wrong. He kept using it anyway, out of loyalty.",
+  "He benched his best player so many times it developed a complex.",
+  "His draft-day sleeper picks slept through the entire regular season.",
+  "Somehow every week's worst possible outcome was also this team's most likely outcome.",
+  "His roster had talent the way a broken vending machine has snacks: technically present, functionally useless.",
+  "He picked this team's name as a joke. The season made damn sure the joke was on him.",
+  "His only truly consistent stat all year was disappointment, week over week, like clockwork.",
+  "He set 'ambitious' lineups all season, in the same way a toddler sets 'ambitious' bedtimes.",
+  "His draft board had a plan. The plan had one fatal flaw, and it was him, plain as hell.",
+  "He spent more time trash-talking than scouting, and it showed in exactly that ratio.",
+  "His fantasy team peaked during the commissioner's preseason power rankings and nowhere since.",
+  "He kept saying 'trust the process.' The process filed for divorce somewhere around Week 9.",
+  "His waiver claims arrived like ambulances: too damn late, and to the wrong location.",
+  "He drafted an entire roster of 'buy low, sell high' candidates and personally embodied the buy-low part all season.",
+  "His draft strategy of 'best player available' somehow located the worst player available, repeatedly.",
+  "He benched a Hall of Fame-caliber week from his own roster without realizing it until Tuesday.",
+  "He treated every start-sit decision like a coin flip, then somehow lost the coin flip against a coin flip.",
+  "His team's motto should be 'close, but emotionally devastating as hell.'",
+  "His fantasy football group chat presence outscored his fantasy football roster, by a wide margin.",
+  "He spent the offseason talking a big game. The season spent all year humbling him for it.",
+  "His bench points this year could've fielded a competitive second team, which is not a compliment.",
+  "His roster had the range of a one-string guitar: bad, and also somehow worse than that.",
+  "His fantasy team's biggest opponent all season was his own damn lineup card.",
+  "He genuinely thought he'd nailed the draft. The draft had other, much crueler plans.",
+  "His team's only real strength was being a hell of a punchline for everyone else's league.",
+  "His draft-day optimism aged about as well as a banana left in a hot car.",
+  "He kept 'one more week' faith in a bust that never once rewarded it.",
+  "He treated bye weeks like personal attacks, and reacted accordingly, which is to say poorly.",
+  "He drafted a stacked roster on paper. The paper, it turns out, was the ceiling.",
+  "His in-season trades were less 'value add' and more 'controlled demolition.'",
+  "He picked this roster with total conviction. Conviction, it turns out, is not a stat category.",
+  "His draft grade started at an A and finished somewhere past the alphabet, straight into profanity.",
+  "His fantasy team peaked the moment the commissioner said 'good luck this year, everyone.'",
+  "He argued with the projections all season and lost every single argument, and every single game.",
+  "His roster's talent-to-output ratio should be studied by economists as a cautionary, borderline criminal tale.",
+  "His fantasy team is the reason participation trophies still exist somewhere, out of pure pity.",
+  "He set the same doomed lineup on repeat, like a man stuck reliving his own worst decision.",
+  "His draft-day hot takes cooled faster than a gas station coffee left out in the damn rain.",
+  "He benched greatness by accident so often it started to feel like a bit.",
+  "His lineup this season had the reliability of a weather forecast written by a Magic 8-Ball.",
+  "His draft-day trades looked good on paper and read like a confession by Week 6.",
+  "His roster's season arc went from 'sleeper pick' straight to 'permanent nap.'",
+  "His waiver claims were consistently a week behind the news and a dollar short on the bid.",
+  "His draft-day 'sleeper' picks are still, to this day, fast asleep.",
+  "His roster peaked in the group chat hype and nowhere on the actual scoreboard.",
+  "His draft board had a strategy. The strategy had a body count, and it was his own roster.",
+  "His roster's talent showed up to work. His lineup card did not let it clock in.",
+  "His draft-day picks are still being workshopped as material for next year's roast.",
+  "He drafted a plan, executed a different plan by accident, and somehow both plans lost.",
+  "His draft-day sleeper picks have officially entered hibernation for the winter, and possibly forever.",
+  "His draft-day confidence and his in-season results filed for a formal separation by October.",
+  "He drafted a roster built to win. It was, instead, built to be discussed for years as a warning.",
+  "His lineup decisions had the batting average of a man swinging with his eyes closed, on purpose.",
+  "He drafted a roster that looked like a fortress on paper and folded like a lawn chair in Week 2.",
+  "His lineup decisions had the hit rate of a broken clock that's also somehow slow.",
+  "His roster's talent level and his lineup decisions had, at best, a passing acquaintance with each other.",
+  "He drafted a plan built on hope, and hope, as it turns out, does not show up on the stat sheet.",
+  "His draft-day energy could have powered a small city. His in-season results could not power a nightlight.",
+  "He drafted a team built to contend and instead built a team destined for the highlight reel of what not to do.",
+  "He drafted a plan with total conviction, and the plan, in hindsight, needed a second opinion.",
+  "\"I have a good feeling about this year.\" — every August, every year, right before the crime scene.",
+  "Somewhere between the draft and Week 1, the wheels came off. Somewhere between Week 1 and now, so did the axle.",
+  "Nothing builds character like watching your kicker outscore your first-round pick for the third straight week.",
+  "You know it's bad when the group chat stops roasting you and starts pitying you instead.",
+  "Zero trades made all season. Zero regrets voiced out loud. Several regrets, privately, at 1am.",
+  "Ask this roster for one good week. Watch it negotiate you down to none.",
+  "The bye weeks weren't the problem. The other fourteen weeks were the problem.",
+  "Somewhere a fantasy analyst is using this roster as the control group in a study on bad decisions.",
+  "\"Trust me, I've got a plan.\" Reader, there was no plan.",
+  "Two kids, a mortgage, and a fantasy roster that somehow requires more patience than both combined.",
+  "The group chat has a term for this season now. It is not a nice term.",
+  "Forty damn years old and still can't be trusted with a waiver budget.",
+  "A brand new low, discovered the way you discover a pothole: suddenly, and with real consequences.",
+  "The commissioner had to double-check this wasn't a clerical error. It was not a damn clerical error.",
+  "You'd think a decade of doing this would teach a man something. You would be wrong.",
+  "There's a fine line between 'rebuilding' and 'never actually built anything.' This team found it and moved in.",
+  "Kids ask their parents where babies come from. This league's kids will one day ask where sackos come from, and the answer will be right here.",
+  "The waiver wire is a marketplace. This owner shopped it like a man who's never once read a price tag.",
+  "A real 'this you?' energy from a preseason group chat message that has aged like unrefrigerated dairy.",
+  "Every fantasy league needs a floor. Someone has to hold the damn thing up, apparently with real enthusiasm.",
+  "The kind of season where 'better luck next year' starts to sound like a threat.",
+  "Middle school kids have a better grasp of risk management than this draft strategy showed.",
+  "If disappointment were a fantasy stat, this would've been a franchise record, shattered weekly.",
+  "This roster's floor and this roster's ceiling had a joint custody arrangement, and the floor won.",
+  "Weeknight lineup changes made from a minivan in a grocery store parking lot. The minivan's picks were better.",
+  "There's losing, and then there's whatever this was, which required its own vocabulary.",
+  "The kicker got more respect from this roster than the actual running backs did.",
+  "You can lead a horse to the waiver wire, but you apparently cannot make it claim the right tight end.",
+  "This team's bye-week planning had the foresight of a toddler crossing a parking lot.",
+  "A full season of 'it's early' that eventually had to just become 'it's over.'",
+  "The most active man in the group chat, the least active man in the actual standings.",
+  "Somewhere, an actuary is calculating the odds of a season this bad happening on purpose, because surely.",
+  "The draft picks were fine. The follow-through filed for early retirement in Week 3.",
+  "An entire fantasy season summarized in one group chat reaction: the crying-laughing emoji, sent by everyone but him.",
+  "There's a kind of confidence that gets punished eventually. This was that, on a payment plan.",
+  "The lineup card and the actual roster hadn't been on speaking terms since October.",
+  "Somebody's got to bring up the rear. This year, it was contractually obligated to be him.",
+  "A rebuild that skipped the 'build' step entirely and went straight to 're-.'",
+  "The bench was doing so much heavy lifting it deserved its own health insurance.",
+  "Injury luck this bad usually comes with a warning label and a hell of a deductible.",
+  "The projections said one thing. The results said several other, much ruder things.",
+  "You could set your watch by this team's weekly collapse, if watches came with disappointment built in.",
+  "His group chat trash talk wrote checks the standings never had any intention of cashing.",
+  "A season that peaked at the fantasy football equivalent of the group photo before a hike nobody finished.",
+  "Every league has a bar. This year, somebody had to limbo under it, and did so with real commitment.",
+  "The waiver wire claims came in so late they qualified as historical research.",
+  "Somewhere a bot drafted better on autopilot than this owner did wide awake with a plan.",
+  "A full season of 'wait and see' that mostly just waited.",
+  "Fantasy football is a game of inches. This team lost by yards, repeatedly, with feeling.",
+  "You don't get this bad by accident. There's a real, sustained effort behind numbers like these.",
+  "The one guy who read every article, watched every film session, and still somehow lost to a coin flip.",
+  "Somewhere in this league's history books, this season gets its own chapter, and it is not a flattering one.",
+  "There's losing with dignity, and then there's whatever category this falls into.",
+  "The bench outperformed the starters so consistently it should be filing a formal grievance.",
+  "An entire roster built on hope, and hope, unfortunately, does not show up on Monday's box score.",
+  "The confidence in August could have powered a small stadium. The results in December could not power a nightlight.",
+  "You know a season's gone sideways when 'at least it's almost over' becomes the team motto.",
+  "Some rebuilds take three years. This one is starting to feel geological.",
+  "A fantasy roster built like a house of cards, in a league that apparently has a wind machine.",
+  "The group chat ran out of new jokes about this team sometime around Week 6 and just started repeating the good ones.",
+  "Somebody has to lose the tiebreaker, the coin flip, and the will to keep checking the app. This year, it was one guy, doing all three.",
+  "There's a kind of bad season that becomes folklore. This is being workshopped into the oral tradition as we speak.",
+  "The waiver wire claims arrived with all the urgency of a chess move in the mail.",
+  "A whole season spent chasing last week's points, and somehow never catching up to any of them.",
+  "You could build a truly excellent second team from this roster's bench. Nobody would draft the starters, though.",
+  "Every fantasy league needs its cautionary tale. This year's is walking around, checking his lineup, hoping nobody noticed.",
+  "The kind of season that makes 'rebuilding' sound like wishful thinking dressed up in a suit.",
+  "His draft grade opened strong and closed like a going-out-of-business sale.",
+  "Some seasons are close. This one wasn't close to anything, including itself.",
+  "There's a version of this roster that wins the league. It exists only in the group chat's collective imagination.",
+  "The kicker got a bigger ovation from the bench than the actual skill players did all season.",
+  "This team's floor kept finding sub-basements the league didn't know existed, like a very unlucky mole.",
+  "A full season of near-misses that, on closer inspection, weren't actually that near.",
+  "You'd need a forensic accountant to explain where this roster's talent actually went.",
+  "Somewhere there's a highlight reel for this team. It's thirty seconds long and mostly just the intro music.",
+  "An entire draft class that peaked in the group chat and nowhere else, ever, all year.",
+  "There's a fine art to losing gracefully. This was more of a smash-and-grab.",
+  "The waiver wire owes this owner a damn apology, mostly for showing up at all.",
+  "A season this consistent deserves recognition, even if the consistency was entirely in the wrong direction.",
+  "You can't spell 'rebuild' without 'ugh,' and this team leaned into that etymology like hell.",
+  "The bench points alone could've made the playoffs in a weaker league. This isn't a weaker league. This is a worse team.",
+  "Somebody has to hold up the bottom of the standings, structurally speaking. This year, it was a group effort by one person.",
+  "An entire season's worth of 'next week is the week' that never actually arrived.",
+  "The draft-day trash talk aged about as gracefully as milk left in a hot car with the windows up.",
+  "There's a certain kind of owner who reads every article, checks every source, and still loses to a guy on autodraft. That's this guy.",
+  "A full season spent one step behind the news, the waiver wire, and apparently reality.",
+  "You know a team's cursed when even the bye weeks feel personal.",
+  "The commissioner's power rankings had this team ranked charitably in Week 1. The charity ran out fast.",
+  "Some seasons end with a whimper. This one ended with a whimper that had been building since August.",
+  "There's a certain peace in knowing you've hit rock bottom. This team hit it, then kept digging like hell out of pure curiosity.",
+  "An entire fantasy season that reads like a group chat's inside joke nobody outside the league would understand, or forgive.",
+  "The waiver wire claims came in a full news cycle behind, like a newspaper delivered to the wrong decade.",
+  "A rebuild in name only — nothing here ever got built in the first damn place.",
+  "You could measure this season's collapse in geological time. It would still feel recent.",
+  "There's a special kind of quiet that follows a bad beat. This team's living room has heard that quiet every single week.",
+  "An entire roster of guys who were 'about to break out,' none of whom actually broke anything except this owner's spirit.",
+  "The draft board had a plan. The plan lasted exactly one round before quietly excusing itself.",
+  "Somewhere, a spreadsheet is still trying to make sense of this and has simply stopped trying.",
+  "A season with more twists than a soap opera, and considerably less payoff for anyone watching.",
+  "You don't accidentally finish this low. There's craftsmanship in a season this thoroughly bad.",
+  "The bench this year deserves hazard pay, hell, danger pay, for carrying points nobody ever got to use.",
+  "There's a version of events where this team makes the playoffs. It requires several other realities to also exist.",
+  "An owner who trusted the process so completely the damn process filed a restraining order.",
+  "Some rosters are boom-or-bust. This one just skipped straight to the bust and stayed there, comfortably.",
+  "The waiver wire has seen a lot in its time. It had never seen claims this late, or this hopeful.",
+  "A full season of confident predictions, none of which survived contact with an actual football.",
+  "You could set a metronome to this team's weekly collapse. Steady, reliable, deeply unfunny to live through.",
+  "There's a kind of losing streak that becomes a personality trait. This league has seen it happen in real time.",
+  "An entire roster of 'sleepers' that, in fairness, really did sleep through the whole season.",
+  "The group chat's condolences arrived weekly, right on schedule, like a very sad subscription service.",
+  "Some seasons you remember for the wins. This one gets remembered for the sheer commitment to the bit.",
+  "A draft strategy built on vibes, executed with the precision of vibes, and rewarded exactly like vibes deserve.",
+  "There's losing the league, and then there's whatever this was, which required its own postseason review.",
+  "An owner who peaked during the coin flip for draft order and spent the rest of the year in a controlled descent.",
+  "The waiver wire claims this year had the strategic depth of grabbing whatever's closest during a fire drill.",
+  "You know a season's rough when the commissioner starts checking in out of genuine concern, not just for content.",
+  "A full year of 'this is the week' that, in fairness, was never actually the week.",
+  "The bench outscored the starters so often it should have its own mascot.",
+  "Some owners rebuild slowly. This one appears to be rebuilding in reverse, on purpose, with real dedication.",
+  "A season that started with a group chat prediction and ended with a group chat eulogy.",
+  "You could write a thesis on this roster's talent-to-output ratio. The thesis would mostly be question marks.",
+  "An entire draft's worth of hope, cashed in for a season's worth of screenshots the group chat won't let die.",
+  "The waiver wire strategy this year had the timing of a surprise party thrown a week after the birthday.",
+  "Some teams peak in the preseason and coast. This one peaked in the preseason and free-fell.",
+  "A roster that looked like a contender on paper and read like a cautionary tale by October.",
+  "You don't get unlucky this consistently. At some point, luck files a complaint and gets the hell out.",
+  "An owner whose draft-day optimism and December reality have never once been introduced to each other.",
+  "The bench this year had more highlights than the starting lineup, which is a real accomplishment in the wrong direction.",
+  "Some seasons are a slow fade. This one had the subtlety of a fire alarm at 3am.",
+  "A full year of lineup decisions that a coin flip would've made more reliably, and with less commentary.",
+  "The waiver wire gave this team every opportunity. This team declined every single one, on principle apparently.",
+  "Some rebuilds have a five-year plan. This one appears to have no damn end date at all.",
+  "A roster that peaked at the group photo and has been quietly declining in every picture since.",
+  "You could forgive one bad week. This league had to forgive about seventeen of the damn things, in a row.",
+  "The bench points this season could've fielded a competitive team in a different, kinder league.",
+  "Some owners chase points. This one appears to have been actively running from them, successfully, all year.",
+  "A draft strategy this confident deserved better execution, or honestly, any damn execution at all.",
+  "You know it's bad when 'building for next year' starts sounding like the fifth consecutive rerun of the same excuse.",
+  "The waiver wire claims arrived like a rescue mission dispatched well after the rescue was no longer possible.",
+  "Some seasons end on a low note. This one has been playing the same low note since Week 2.",
+  "A roster built for a championship and repurposed, by necessity, into a group chat punchline.",
+  "The bench this season deserved a participation trophy bigger than the one the starters earned.",
+  "Some teams collapse under pressure. This one collapsed well before any pressure showed up.",
+  "You don't luck your way into a season this bad. There's real, consistent effort in these numbers.",
+  "An owner whose trade offers were rejected so often they started to feel like a cry for help.",
+  "The waiver wire this season had the reliability of a weather app that's never once been right.",
+  "Some seasons you survive. This one required a support group and a group chat willing to carry the damn weight.",
+  "A draft board with big plans, executed by a man whose plans and results have never once met in person.",
+  "The bench this year had a better win rate than the starters, which is technically impressive and deeply, deeply embarrassing as hell.",
+  "A full year of 'trust the roster' that the roster, frankly, never once earned.",
+  "An owner whose confidence and whose lineup card have, as far as anyone can tell, never once met each other, the bastards.",
+  "The waiver wire strategy this year read like a grocery list written by someone who forgot why they came to the store.",
+  "A roster that peaked on draft day and has been in a dignified, extended decline ever since.",
+  "The bench outperformed the starters so often the starters should be too damn embarrassed to show up to games.",
+  "A draft strategy that sounded great in the group chat and read like a confession by midseason.",
+  "An owner whose trade deadline activity had the energy of a guy cleaning out a garage nobody asked him to touch, the hell was that about.",
+  "The waiver wire claims this season arrived with the punctuality of a card mailed for last year's birthday.",
+  "A roster that looked like a contender in the group chat preview and read like a warning label by Week 3.",
+  "The bench this year deserved combat pay, hazard pay, hell, a damn medal, for points that never once got to matter.",
+  "Some teams rebuild in three years. This one appears to be attempting it in reverse, and succeeding.",
+  "The waiver wire gave this team chance after chance. This team returned each one, politely declined, unopened.",
+  "A roster built on hope, financed by optimism, and repossessed by the standings sometime around Halloween.",
+  "An owner whose draft-day promises the group chat has since entered into evidence.",
+  "The bench this season could've made a deep playoff run in a league with lower standards. This league does not have lower standards.",
+  "Some teams peak early and fade. This one skipped the peak entirely and went straight to fading.",
+  "A full year of 'wait till next week' that next week, reliably, never once improved a damn thing.",
+  "The waiver wire strategy this year had the hit rate of a fortune cookie that actively resents you.",
+  "A roster that peaked in theory, cratered in practice, and settled into legend somewhere in between.",
+  "The bench this season had more highs than the starters had all year combined, and everyone noticed.",
+  "A full year of lineup decisions made with total confidence and zero supporting evidence.",
+  "The waiver wire this year handed out gifts weekly. This team, weekly, declined to open a single one.",
+  "A roster that peaked at the fantasy draft party and has been in recovery ever since, unsuccessfully.",
+  "The bench outscored the starters so often it should legally, damn it, just be the starting lineup.",
+  "A full year of 'it'll click eventually' that eventually, tragically, never actually arrived.",
+  "The waiver wire claims this year had the urgency of a text left on read for six business days.",
+  "A roster that read like a contender on paper and played like a rough draft nobody proofread.",
+  "The bench this season deserved its own line in the standings, separate from the starters, for accuracy's sake.",
+  "The waiver wire gave this team every tool it needed. This team, somehow, found a way to leave every tool in the shed.",
+  "A roster built with real thought and real research, undone by the one damn variable nobody accounted for: him.",
+  "The bench this season had a case for MVP that the starters never once threatened to make.",
+  "A full year of 'the process is working' that the process, if it could speak, would like to formally dispute.",
+  "The waiver wire strategy this year had the foresight of grocery shopping without a list, hungry, half-asleep, at hell o'clock.",
+  "A roster that promised a lot in August and delivered mostly apologies by November.",
+  "The bench this season outproduced the starters so consistently it's basically running its own shadow campaign.",
+  "The waiver wire this season had more patience with this team than this team had with itself.",
+  "A roster that had all the makings of a contender and all the results of a cautionary tale.",
+  "The bench this season had a better résumé than the starters, and everyone in the group chat noticed, loudly.",
+  "The waiver wire claims this year arrived with the timing of a apology sent to the wrong group chat entirely.",
+  "A roster that peaked in the fantasy magazine preview and nowhere else, tragically, all season long.",
+  "Group chat, Week 1: \"This team's scary this year.\" Group chat, Week 12: \"This team's a cry for help.\"",
+  "Text from August: \"final roster, we're winning it all.\" Screenshot pinned. Never lived down.",
+  "\"I don't need to look at the injury report, I trust my gut.\" — the gut, later, declining to comment.",
+  "Group chat poll: \"Who's making the playoffs?\" His own name, submitted by him, drew zero other votes.",
+  "\"It's a rebuilding year.\" Sir, it is year six of the rebuild.",
+  "Voicemail to the commissioner: \"Hey, quick question about a trade—\" Message ends. No trade ever happens.",
+  "Group chat, unprompted, Week 9: \"just checking in, everyone still alive?\" No response. He knew why.",
+  "\"Bold prediction: I finish top three.\" Bold. Wrong. Framed on the wall now, for the wrong reasons.",
+  "Sixty bench points and a losing record: the fantasy football equivalent of acing the rehearsal and blowing the show.",
+  "This roster is a group project where everyone did the work except the one guy whose name is on it.",
+  "A season with the emotional arc of a Monday: promising for about an hour, then just Monday again.",
+  "This team's schedule was basically a calendar of bad news with a bye week thrown in for cruelty.",
+  "His draft was a first date that went great, followed by a relationship that never called back.",
+  "This roster is a car with a full tank and no engine.",
+  "A fantasy team that reads like a résumé padded with skills nobody ever demonstrated on the job.",
+  "His waiver strategy is a Vegas buffet: grab everything, regret half of it by Tuesday.",
+  "This lineup card is a weather app that's confidently, consistently wrong.",
+  "His bench is the understudy who's clearly better than the lead and never gets the call.",
+  "A season that's basically a home renovation show: big plans, blown budget, nothing finished by the deadline.",
+  "This team is a group chat's cautionary tale wearing a jersey.",
+  "His draft picks are a mixtape of 'guy's about to break out' that never once got played on the radio.",
+  "A fantasy season that's basically a diet: strong on January 1st, gone by the second week.",
+  "His trade history reads like a garage sale where he's accidentally selling his own good stuff.",
+  "This roster is a group chat's inside joke that stopped being a joke around Week 5.",
+  "Zero. That's the number of times this lineup got it right on the first guess. Zero. All season.",
+  "Last place. On purpose, apparently, given the effort involved.",
+  "Bench: stacked. Starters: not so much. Standings: exactly what you'd expect from that math.",
+  "Cursed roster. Blessed bench. Somebody mixed up the invitations.",
+  "Rough year. Rougher decade. Roughest group chat reputation in league history.",
+  "No trades. No moves. No damn excuse, either, but he tried anyway.",
+  "One good week. Seventeen weeks total. Do the math, then wince.",
+  "Drafted hope. Delivered nothing. Charged full price anyway.",
+  "Big talk in August. Small talk in December. Silence by January.",
+  "Last place has a new tenant, and he's already redecorating.",
+  "Sixty on the bench. Forty on the field. Everyone noticed.",
+  "Confidence: sky-high. Standings: rock-bottom. Gravity always wins eventually.",
+  "Cold roster. Colder December. Coldest reception from the group chat.",
+  "His lineup decisions are basically a horoscope: vague, confident, and wrong for everyone reading it.",
+  "His draft strategy is basically a group text: everyone chimes in, nobody actually decides anything, chaos ensues.",
+  "His waiver adds are basically late-night infomercial purchases: exciting for ten minutes, regretted for months.",
+  "His season is basically a home inspection report: long, alarming, and somehow still worse once you dig deeper.",
+  "His bench is basically a savings account: quietly accumulating value nobody's allowed to touch.",
+  "His trade history is basically a yard sale: he keeps pricing his good stuff to give away.",
+  "His confidence is basically a car warranty: sounds reassuring right up until you actually need it.",
+  "His playoff odds are basically a scratch-off ticket: technically possible, realistically a rounding error.",
+  "You knew it was over the moment he said 'trust me' in the group chat.",
+  "You built this roster with your own two hands. Nobody made you do this.",
+  "You had one job: set the lineup. You had seventeen chances. You'll want to sit with that.",
+  "You called your shot in August. The shot called back, collect, to apologize on your behalf.",
+  "You've been rebuilding since before some of these players were drafted. At some point it's just the building now.",
+  "You trusted the process. The process, respectfully, never trusted you back.",
+  "You checked the app forty times a week and still managed to miss the one thing that mattered.",
+  "You drafted for upside. You got the other side. That's how upside works, apparently, for you specifically.",
+  "Somewhere a fantasy football podcast is using this season as their cold open, unprompted, for free.",
+  "Somewhere a stat nerd built a model just to explain this season, and the model quietly gave up.",
+  "Somewhere there's a version of this roster that wins it all. It clocked out in August and never came back.",
+  "Somewhere a bracket predicted this team going all the way. That bracket has been quietly discarded.",
+  "The front office met. The front office is one guy. The one guy resigned, then rehired himself out of spite.",
+  "Quarterly review: points down, excuses up, morale somewhere in the sub-basement.",
+  "Performance review says 'needs improvement' in every category, including the category called 'effort.'",
+  "The onboarding process for this roster was smoother than the actual season that followed.",
+  "He ran this team like a meeting that could've been an email, and the email still would've lost.",
+  "The exit interview for this season would just be him staring at a wall for forty-five minutes.",
+  "His team's KPIs this year were all in the red, and not the good, aggressive kind — the 'oh hell' kind.",
+  "He pitched a five-year plan to the group chat. The group chat approved the pitch and not much else.",
+  "This season's all-hands meeting was just him, alone, explaining a loss to an empty room.",
+  "This team went into the oven looking like a contender and came out looking like a cautionary Pinterest fail.",
+  "His lineup was a menu with great descriptions and a kitchen that never once delivered on them.",
+  "He served up a whole season of burnt takes, undercooked decisions, and one very overdone excuse.",
+  "His draft board was a shopping list. His actual roster was whatever was left after the good stuff sold out.",
+  "This roster simmered all preseason and boiled dry by October, unattended, on purpose apparently.",
+  "His team's flavor profile this year: mostly disappointment, with a garnish of bad luck.",
+  "He brought a crockpot mentality to a microwave league, and neither approach actually worked out.",
+  "He coached this roster like a man calling plays from a losing hand and refusing to fold.",
+  "His team's locker room speech this year would just be him quietly turning off the lights.",
+  "He ran this roster like a two-minute drill with no timeouts left and no plan to begin with.",
+  "This roster's scouting report reads: 'Great tools. Zero follow-through. Do not draft unless desperate.'",
+  "His team's playbook this year had exactly one page, and it was blank.",
+  "His draft-day cover letter promised a lot. His season's performance review disagreed with every line of it.",
+  "His team's LinkedIn would say 'building synergy.' His standings say otherwise, loudly.",
+  "His fantasy roster's metrics are all trending in a direction nobody wants to put in a damn slide deck.",
+  "His team's five-year plan is now a running joke that's outlasted several actual five-year plans in his real, actual damn life.",
+  "This roster's quarterly earnings call would just be silence, followed by someone hanging up first.",
+  "His draft-day energy was a Monday morning. His Week 17 energy was also, somehow, a worse Monday morning.",
+  "He ran this roster's budget like a man who's never once balanced a checkbook in his life, on purpose, with real confidence.",
+  "He built this roster like a bookshelf from a box: instructions ignored, extra pieces left over, wobbles under pressure.",
+  "His draft board this year had big dreams and a very small, very leaky boat to carry them in.",
+  "He set lineups with the energy of someone guessing a password, over and over, never quite landing on the right one.",
+  "His draft-day war room was a folding chair, a bag of chips, and a plan that fell apart before the second round.",
+  "His waiver-wire timing arrived so damn late it should've come with an apology fruit basket attached.",
+  "His draft-day sleeper picks are still, to this day, fast asleep, snoring loud enough for the whole league to hear.",
+  "His waiver-wire adds this year arrived like backup dancers who showed up after the show had already ended and gone home.",
+  "Breaking: local man discovers new way to lose, patents it, loses the patent too.",
+  "Breaking: fantasy team's five-year plan enters its ninth year with no further comment.",
+  "Congratulations are in order, technically, since someone has to finish last and he did it with real commitment.",
+  "Congratulations on the new personal record. Nobody's proud of you for it, but it is, technically, a record.",
+  "Three trades. Zero wins from them. One very quiet group chat afterward.",
+  "Two keepers, one bad year, zero explanations that hold up under questioning.",
+  "Seventeen weeks, one bright spot, and it was Week 1, before anyone knew better.",
+  "Four waiver claims a week, forty missed opportunities a season, one guy who never noticed the pattern.",
+  "If mediocrity had a season pass, this guy would've used every damn week of it, front row.",
+  "If disappointment paid interest, this roster would be the league's only millionaire.",
+  "If excuses were touchdowns, this would've been a championship season, easily, by a landslide.",
+  "I'd explain my draft strategy, but my lawyer's advised me to shut the hell up about it in public.",
+  "I have several regrets, and most of them have a damn jersey number.",
+  "I was told there'd be a rebuild. Nobody mentioned it would take longer than my actual mortgage.",
+  "Ask me how the season went. Actually, don't. I'll tell you anyway, badly, at length.",
+  "I checked the box score so you wouldn't have to. You're welcome. I'm sorry. Both.",
+  "The printer jams less than this roster's playoff hopes did, and the damn printer's from 2009.",
+  "This team had more buffering than a bad Wi-Fi signal, and about the same amount of actual output.",
+  "Setting this lineup felt like renewing a gym membership: expensive, hopeful, and ultimately unused.",
+  "This roster expired quietly, like a coupon nobody remembered to use before the deadline.",
+  "Mondays — actual, hated Mondays — had more going for them than this team did in November.",
+  "The parking meter downtown gave this team a better return than the actual waiver wire did.",
+  "This season had the reliability of a subway delay: constant, unexplained, and somehow still your fault for expecting better.",
+  "Every fantasy league has a team that peaks in the group chat. This year, it had a co-champion.",
+  "There is a special kind of quiet reserved for a blowout loss, and this living room knows it by heart now.",
+  "He's been in this league since dial-up internet, and his patience for his own damn self has aged worse than the connection speed.",
+  "A decade in this league and he still drafts like it's his first damn year, in the bad way, not the charming way.",
+  "The record books have a new entry, and it's less a record and more a warning label.",
+  "This roster's ceiling and floor merged sometime in October and nobody bothered to notify the roster.",
+  "A whole season of 'almost' that never once graduated into 'actually.'",
+  "He out-drafted the league's projections in exactly one category: how badly it could go.",
+  "This is what happens when confidence shows up to a fight that preparation skipped entirely.",
+  "He wore the loss well, mostly because by Week 10 there wasn't much else to wear.",
+  "The scoreboard doesn't lie, which is a real shame for him specifically, every single week.",
+  "This roster peaked the moment it was drafted and spent the rest of the year finding new ways to prove that wrong.",
+  "This team's story is the one new members get told at their first draft, as both a joke and a warning.",
+  "He's not rebuilding a damn thing. He's redecorating the same disappointing room, season after season.",
+  "A losing streak this long deserves its own zip code at this point.",
+  "He drafted with his heart. His heart, respectfully, has no idea what it's doing in a fantasy draft.",
+  "He's owed a damn refund from this season, and honestly, so is everyone who had to sit through it.",
+  "This team's championship window wasn't just closed, it was bricked over and repainted as a wall.",
+  "He came into the year with a plan. The plan came out swinging, lost in the first round, and took the rest of the season down with it.",
+  "His draft-day swagger and his December results have never once occupied the same calendar year peacefully.",
+  "He set out to contend. He ended up as the punchline the league tells at every future draft, unprompted.",
+  "A whole season spent one week behind the news, one dollar short on the waiver bid, and one excuse deep in denial.",
+  "He's the reason this league added a 'no damn promises in the group chat' rule, informally, out of self-defense.",
+  "His waiver-wire luck ran out somewhere around the first week and never once found its way back.",
+  "He's been chasing 'this is the year' so long it's basically become his walk-up music at this point.",
+  "He's got the receipts for every bad beat this year, filed neatly, in a folder labeled 'not my fault.'",
+  "A whole season of 'it'll turn around' that never actually found the turn.",
+  "He's not cursed. He's just consistently, personally, remarkably bad at the one part that actually matters, and that's just the hell of it.",
+  "A whole year of 'wait for it' that, in the end, wasn't worth the wait at all.",
+  "He's owed an apology from his own gut instinct, which has been wrong, specifically, every single week.",
+  "He set lineups with total conviction all year, and conviction, it turns out, isn't a fantasy stat.",
+  "He's been promising a turnaround so long the promise has its own tenure at this point.",
+  "A whole season of confident group chat messages that the standings personally, thoroughly rejected.",
+  "He's the reason 'trust the process' now gets used ironically in this group chat, permanently, forever.",
+  "He's got a five-year plan aging like milk in a hot car with the windows up, and it smells about as bad.",
+  "A whole season of 'the tape doesn't lie,' delivered by a guy who clearly never watched the tape.",
+  "He's not rebuilding so much as he's redecorating the wreckage and calling it progress.",
+  "He set his lineup like a man throwing darts at a board that had already been quietly taken down.",
+  "He's owed a written apology from his own draft board at this point, in triplicate, notarized.",
+  "He's the reason this group chat now has an unofficial rule about preseason predictions, out of mercy.",
+  "And the award for 'most confident preseason take' goes to a man who, in hindsight, should have said nothing at all.",
+  "And the award for 'best supporting bench' goes to the only part of this roster that actually showed up.",
+  "Nothing says late-30s dad quite like missing the lineup deadline because of a Saturday morning snack-duty run.",
+  "Nothing humbles a grown man quite like his kid asking why his team is in last place, again, politely, at dinner.",
+  "In an alternate universe, this roster wins it all. In this one, it's Tuesday, and he's still explaining Sunday.",
+  "In an alternate universe, he reads the injury report before setting his lineup. We do not live in that universe.",
+  "Forgot the fantasy lineup, remembered the wedding anniversary. A rare, genuinely correct set of priorities, for once.",
+  "Set the lineup during the kid's dentist appointment. Both the lineup and the appointment needed a redo.",
+  "Therapist: 'And how did that make you feel?' Him, re: this fantasy season: 'Do you have a few hours?'",
+  "His fantasy horoscope this year: bold moves, poor timing, and Mercury in permanent retrograde over his bench.",
+  "Fortune cookie energy: 'A humbling season awaits.' It wasn't wrong, and it didn't need to be that specific.",
+  "Sports radio caller, probably about this team: 'I'm just saying, at some point, you gotta look in the mirror.'",
+  "He didn't rebuild the roster so much as he just kept adding new rooms to the same burning house.",
+  "Somewhere between 'let's have fun this year' and Week 4, the fun quietly left the group chat.",
+  "He drafted with the calm of a man who's never once had to explain a bad decision to his own family.",
+  "The league's newest tradition: naming the last-place trophy after whoever's currently explaining this exact sentence.",
+  "A grown-ass man, forty pushing fifty, still can't be trusted alone with a waiver wire and good intentions.",
+  "He speaks about 'next year' the way some people speak about diets: with total conviction and a track record that disagrees.",
+  "His fantasy team's group chat eulogy basically wrote itself by Week 6, and everyone let it.",
+  "There's a special kind of exhausted that comes from losing on a Sunday and explaining it again on Monday, at work, unprompted.",
+  "He brought a decade of experience to this draft and somehow drafted like it was his very first year, worse even.",
+  "His team didn't lose quietly. It lost with a full soundtrack, several plot twists, and a bad final act.",
+  "A man who color-codes his spreadsheets and still can't figure out which running back to start on a given Sunday.",
+  "His roster's best trait this year was giving the rest of the league something to talk about besides their own mediocrity.",
+  "He's been saying 'we're close' since roughly the Obama administration, and the gap hasn't budged an inch since.",
+  "His fantasy team is the reason 'it's just a hobby' had to be invented as a coping mechanism, specifically for him.",
+  "He drafted a roster built for Sundays and somehow made every single one feel like a Monday morning meeting.",
+  "A whole season of texting 'this can't keep happening' into a group chat that, respectfully, kept happening anyway.",
+  "He's the guy who listens to three damn podcasts a week and still starts the wrong tight end out of pure muscle memory.",
+  "His draft-day optimism should come with a hazard sign for the rest of the league's emotional safety.",
+  "A season that taught him more about humility than two decades of actual adult life ever managed to.",
+  "He treats his fantasy team like a New Year's resolution: loud in January, quiet by February, gone by March.",
+  "His bench this year had the energy of an all-star team stuck permanently in the waiting room.",
+  "He's owed a formal, notarized apology from every mock draft that ever called this roster a sleeper contender.",
+  "A man who reads every damn word of his mortgage fine print and somehow skips it entirely on his own lineup.",
+  "His fantasy team's decline this year had the pacing of a slow, well-documented home renovation gone wrong.",
+  "He talks a hell of a game at the draft table and a much smaller, quieter one every single week after.",
+  "His roster peaked in the group chat's welcome message and it's been a slow walk back ever since.",
+  "A season that will be quoted at future drafts the way other leagues quote actual scripture, unkindly and often.",
+  "He's not chasing a championship anymore. At this point, he's chasing basic respectability, and even that's not close."
   ];
 
 function honoursData(){
@@ -4353,7 +4548,10 @@ function renderSettingsPanel(){
         <b>Update from a file</b> is the reliable one: pick
         <span class="mono">Keeper_League_Command_Center.html</span> from your project folder.
         The published page can only ever re-read its own old code, so re-publishing from it
-        changes nothing.${hasGithub ? "" : `<br><br><b>These need GitHub connected first</b>
+        changes nothing. It also asks for a <b>password</b> and encrypts the app before it
+        goes up &mdash; the URL is public whether you like it or not, so the file at the end
+        of it should not be readable. Forget the password and nothing is lost but the hosted
+        copy: publish again from the same file with a new one.${hasGithub ? "" : `<br><br><b>These need GitHub connected first</b>
         &mdash; add your token below, press Save, and they start working. They are shown
         anyway on purpose: hiding the button that repairs an unconfigured app was how this
         turned into a chicken-and-egg.`}
@@ -4440,31 +4638,34 @@ function welcomeSection(season){
     ? `https://football.fantasysports.yahoo.com/f1/${esc(STATE.currentLeagueId)}` : null;
   return `<section class="rules" id="welcome-card">
     <h2>Welcome to the new home of WHS Fantasy Football</h2>
-    <p>I've been running this league for over a decade now, so it was finally time to
-    drag it into one place — every value, every rule, every dollar, every season we've
-    ever played, all in one spot. Bookmark it. Actually use it this time.</p>
-    <p>Quick refresher for anyone who's forgotten (looking at you): this is a laid-back
-    league of ${owners.length} high school buddies who still can't quit each other.
-    It's an excuse to talk trash and stay in each other's business for four months a
-    year. The goal is always to have fun — nobody's taking this too seriously.
-    (Except the guy who just lost. He's taking it very seriously.)</p>
+    <p>I've been running this league for over a decade now, so it felt like time to bring
+    everything into one place — every value, every rule, every dollar, every season we've
+    ever played, all under one roof. Bookmark it, and let's finally retire the group-chat
+    archaeology every time someone asks "wait, what round was he kept at?"</p>
+    <p>For anyone who needs the reminder (all of us, every single August): this is a
+    laid-back league of ${owners.length} high school friends who never really stopped
+    hanging out, we just moved it to Sundays. The whole point is to have fun and talk a
+    little trash along the way. Nobody's required to take it too seriously. (Though if
+    you win, you're more than welcome to.)</p>
     <p><b>We're a keeper league.</b> Hang on to your guys from last year at a discount,
-    so drafting well — and actually hitting on a sleeper for once — pays off for years,
-    not just one Sunday. The full breakdown, Puka Nacua example included, lives in
+    so drafting well — and landing a sleeper once in a while — pays off for more than
+    just one season. The full breakdown, with a real example, lives in
     <b>The Keeper Rules</b> tab.</p>
     <p><b>The money:</b> there's a weekly payout for the top score, so it pays to stay
     locked in every single week, not just the weeks your team's actually good. Whatever's
     left after the weeklies splits <b>60% to 1st, 25% to 2nd, 15% to 3rd</b>. The exact
     numbers are right below — go see how much you're chasing.</p>
-    <p><b>And no, there's no sacko punishment.</b> Blame Yi for that. Instead, our
-    last-place finishers get enshrined forever on the <b>Hall of Fame</b> tab's Sacko
-    Wall, for permanent, public mockery. Play to the bitter end, or the wall gets you.</p>
+    <p><b>And no, there's no sacko punishment.</b> Blame Yi — worst sacko commissioner
+    in league history. Instead, our last-place finishers get enshrined forever on the
+    <b>Hall of Fame</b>
+    tab's Sacko Wall, for good-natured, permanent mockery. Play to the bitter end, or
+    the wall's waiting for you.</p>
     ${yahooUrl ? `<p><a class="chip" style="font-size:12px;padding:6px 14px;"
       href="${yahooUrl}" target="_blank" rel="noopener">&#127944; Open our Yahoo league &rarr;</a></p>` : ""}
     <p style="margin-top:14px;"><b>Finding your way around:</b><br>
-    <b>Keeper Values</b> — who costs what this year. Find your name, check your damage,
-    and follow the steps at the bottom to lock your two in on Yahoo.<br>
-    <b>The Keeper Rules</b> — the whole system in ten bullets, no legalese.<br>
+    <b>Keeper Values</b> — who costs what this year. Find your name, see where you
+    stand, and follow the steps at the bottom to lock your two in on Yahoo.<br>
+    <b>The Keeper Rules</b> — the whole system, plainly explained, examples included.<br>
     <b>League History</b> — every keeper value and every draft, every season we've played.<br>
     <b>Hall of Fame</b> — the champions, the Sacko Wall, and the stats that settle
     arguments (or start new ones).</p>
@@ -4602,22 +4803,44 @@ function keeperHowToSection(){
 function keeperRulesSection(){
   return `<section class="rules" id="keeper-rules">
     <h2>The Keeper Rules</h2>
-    <p>Two keepers each, every keeper costs a pick — here's the whole system, no fine print.
-    They're numbered so we can point at one: if a player's row says
-    <span class="mono">rule 8</span>, that's the one it means.</p>
+    <p>Two keepers each, every keeper costs a draft pick — here's the whole system, plain
+    and simple, with real examples so nobody has to guess. They're numbered so we can
+    always point at one: if your keeper value shows <span class="mono">rule 8</span>,
+    this is the rule 8 it means.</p>
     <ol>
-      <li><b>Keep up to two players</b> from your end-of-season roster. One or none is fine too.</li>
-      <li><b>The price is the round you drafted him in.</b> Draft a guy in round 3, and keeping him costs your round-3 pick.</li>
-      <li><b>First-rounders can't be kept.</b> And once a keeper's price climbs all the way to round 1, his run is over.</li>
-      <li><b>Once the price reaches round 1, he's done.</b> That's the natural end of any keeper's run.</li>
-      <li><b>Three years, then back in the pool.</b> Draft year plus two keeps is the max — that's why Puka finally hit the board again.</li>
-      <li><b>Drafted in round 8 or later — or picked up during the season? He costs a round 8.</b> That's the sleeper discount: Puka Nacua went in round 14 back in 2023 and cost just an 8th to keep.</li>
-      <li><b>The price sticks to the player.</b> Dropping and re-adding a guy doesn't make him cheap again.</li>
-      <li><b>He has to finish the year on your team — and he has to have played.</b> Rostered the final four weeks of the season, with at least one game played that year. No stashing December pickups.</li>
-      <li><b>Your two keepers can't cost the same round.</b> One bumps up a round — your choice, or ADP decides for you.</li>
-      <li><b>In Yahoo, the salary next to a player's name is his price in rounds.</b> A <b>0</b> means he can't be kept this year; no number means <b>8</b>.</li>
-      <li><b>A trade restarts the clock.</b> The new owner gets a fresh three years, and the price carries over unchanged.</li>
-      <li><b>Dropped and never picked back up? He's gone.</b> Only players on your final roster at the end of the season can be kept.</li>
+      <li><b>Keep up to two players</b> from your end-of-season roster. Zero or one works
+        too — nobody's forcing your hand.</li>
+      <li><b>The price is the round you drafted him in — and it climbs one round every
+        year you keep him.</b> Draft a guy in round 6, keep him next year for a round-6
+        pick, keep him again the year after (his third and final year) and it's down
+        to a round-5 pick.</li>
+      <li><b>First-rounders can't be kept. Full stop.</b> Drafted him in round 1? He's
+        off the keeper table before the season even starts — no path around it.</li>
+      <li><b>Once his price reaches round 1, he's done as a keeper.</b> A round-2 pick,
+        kept twice, prices out at round 1 in year three — right as the three-year cap
+        (rule 5) ends his run anyway.</li>
+      <li><b>Three years, then back in the pool.</b> Draft year plus two keeper years is
+        the max, no exceptions — that's why Puka Nacua hit the board again in 2026
+        after three straight years with Phil.</li>
+      <li><b>Drafted in round 8 or later — or picked up during the season? He costs a
+        round 8.</b> That's the sleeper discount: Puka Nacua went in round 14 back in
+        2023 and cost just an 8th-round pick to keep.</li>
+      <li><b>The price sticks to the player, not the moment.</b> Drop a round-4 keeper
+        and someone else scoops him off waivers — he's still a round-4 keeper for them,
+        not a fresh round-8 default.</li>
+      <li><b>He has to finish the year on your team — and he has to have actually
+        played.</b> Rostered the final four weeks of the season, with at least one game
+        played that year. No stashing a December pickup and calling him a keeper.</li>
+      <li><b>Your two keepers can't cost the same round.</b> One of them bumps up a
+        round — your call, or ADP makes the call for you if you don't.</li>
+      <li><b>In Yahoo, the salary next to a player's name is his price in rounds.</b>
+        A <b>0</b> means he can't be kept this year; no number means <b>8</b>.</li>
+      <li><b>A trade restarts the clock.</b> Get traded a keeper mid-season and you get
+        a fresh three years with him — his price carries over unchanged, but the years
+        his old owner already used don't follow him.</li>
+      <li><b>Dropped and never added back? He's gone for good.</b> Only players on your
+        actual final roster at season's end are keeper-eligible — release him in
+        October and never re-add him, and there's no keeper value left to talk about.</li>
     </ol>
   </section>`;
 }
@@ -4782,9 +5005,9 @@ function sackoSection(){
   if(!rows) return "";
   return `<section class="rules" id="sacko-card">
     <h2>The Sacko Wall</h2>
-    <p>No punishments in this league — thank Yi for that — so instead, last place lives
-    here forever: name, team, and a fresh roast every single time this page loads.
-    Play to the bitter end, or take your spot on the wall.</p>
+    <p>No punishments in this league, so instead last place lives here forever: name,
+    team, and a fresh roast every single time this page loads. Play to the bitter end,
+    or take your spot on the wall.</p>
     ${rows}
   </section>`;
 }
@@ -4795,25 +5018,26 @@ function statsSection(){
     `<tr${i===0?' class="keptrow"':''}><td class="pcell">${esc(r.owner)}</td>
       <td class="valcell"><span class="val">${unit==="$" ? money(r.n) : r.n}</span></td></tr>`).join("")
     || `<tr><td colspan="2" class="notkept">Nothing yet.</td></tr>`;
+  const winningsSince = Math.min(...Object.keys(STATE.payouts||{2025:1}).map(Number));
   return `<section class="rules" id="stats-card">
     <h2>League Stats</h2>
     <p>The numbers that settle every argument in the group chat — or, more likely, start a new one.</p>
     <div class="grid">
-      <section class="team"><h2>Most titles</h2>
+      <section class="team"><h2>Most Rings &mdash; league titles</h2>
         <table><tbody>${list(s.titles)}</tbody></table></section>
-      <section class="team"><h2>Always a bridesmaid &mdash; most 2nd + 3rd</h2>
+      <section class="team"><h2>Always a Bridesmaid &mdash; most 2nd + 3rd</h2>
         <table><tbody>${list(s.nearly)}</tbody></table></section>
-      <section class="team"><h2>Most sackos</h2>
+      <section class="team"><h2>Repeat Offender &mdash; most sackos</h2>
         <table><tbody>${list(s.sackos)}</tbody></table></section>
-      <section class="team"><h2>Most keepers all-time</h2>
+      <section class="team"><h2>Keeper Hoarder &mdash; most keepers, all-time</h2>
         <table><tbody>${list(s.keeps)}</tbody></table></section>
-      <section class="team"><h2>Kept the full 3 years, most often</h2>
+      <section class="team"><h2>Went the Distance &mdash; kept the full 3 years</h2>
         <table><tbody>${list(s.runs)}</tbody></table></section>
-      <section class="team"><h2>Most winnings</h2>
-        <table><tbody>${list(s.winnings, "$")}</tbody></table></section>
+      <section class="team"><h2>Money Bags &mdash; most winnings</h2>
+        <table><tbody>${list(s.winnings, "$")}</tbody></table>
+        <p class="notkept" style="margin-top:8px;">Counted from ${winningsSince}, when we
+        started tracking the pot here.</p></section>
     </div>
-    <p class="notkept" style="margin-top:10px;">Winnings counted from ${Math.min(...Object.keys(STATE.payouts||{2025:1}).map(Number))},
-    when we started tracking the pot here.</p>
   </section>`;
 }
 
@@ -4922,7 +5146,7 @@ function buildShareableHTML(){
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
 <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet">
 <meta name="referrer" content="no-referrer">
-<title>WHS Fantasy Football — ${season}</title>
+<title>WHS Fantasy Football</title>
 <style>
   :root{ --field:#224533; --field-dark:#193527; --chalk:#f6f2e7; --chalk-dim:#c6d2c5; --gold:#f0b42e; --gold-dim:#a07d22; --line:#3f5f4b; --danger:#e57450; --ok:#6fc99a; --card:#2a533d; }
   *{box-sizing:border-box;} body{margin:0; background:linear-gradient(180deg, var(--field) 0%, var(--field-dark) 100%); color:var(--chalk); font-family:"Helvetica Neue",Arial,sans-serif; padding:32px 20px 60px;}
@@ -5008,6 +5232,7 @@ function buildShareableHTML(){
   .histtable{width:100%; border-collapse:collapse;}
   .histtable th{text-align:left; font-size:9.5px; text-transform:uppercase; letter-spacing:0.09em;
     color:#a07d22; padding:5px 6px; border-bottom:2px solid var(--line);}
+  .histtable th.valcell{text-align:right;}
   .histtable td{padding:7px 6px; border-bottom:1px solid rgba(63,95,75,0.45); vertical-align:top;}
   .histtable .pcell{font-weight:700; font-size:13px;}
   .histtable .rdcell{font-family:"SFMono-Regular",Menlo,monospace; font-size:13px;}
@@ -5369,6 +5594,154 @@ window.publishToGithub = async function(silent){
 
    The page has no credentials in it; the token lives in the browser, not the
    file. Anyone loading this URL gets the app with no data in it. */
+/* ── Locking the published app ────────────────────────────────────────────────
+   GitHub Pages only serves from a public repo on a free account, so app.html is
+   readable by anyone who knows the URL. A password prompt in JavaScript would be
+   theatre — the app is right there in View Source. So the file that gets
+   published is not the app: it is a small loader carrying the app as an
+   AES-256-GCM ciphertext, keyed by PBKDF2-SHA256 over the commissioner's
+   password. Without the password there is nothing in the file to read.
+
+   GCM's auth tag is what tells a wrong password from a right one: decrypt throws
+   rather than returning garbage, so the loader never has to store a hash of the
+   password to check against.
+
+   The recovery path deliberately does not sit behind the lock. Forget the
+   password and the hosted copy is gone, but the app is still a file in the
+   project folder — open that and "Update from a file" republishes with a new
+   password. Never put the repair behind the thing it repairs. */
+const APP_LOCK_MARKER = "whs-keeper-locked-app";
+const APP_LOCK_ITER   = 400000;
+
+const b64FromBytes = (u8) => {
+  let bin = "";
+  for(let i = 0; i < u8.length; i += 0x8000)          // chunked: apply() blows the
+    bin += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));  // stack on 600 KB
+  return btoa(bin);
+};
+
+async function deriveAppKey(password, salt, usage){
+  const km = await crypto.subtle.importKey(
+    "raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey(
+    { name:"PBKDF2", salt, iterations:APP_LOCK_ITER, hash:"SHA-256" },
+    km, { name:"AES-GCM", length:256 }, false, [usage]);
+}
+
+async function buildLockedAppHTML(appHtml, password){
+  if(!(crypto && crypto.subtle))
+    throw new Error("this browser has no WebCrypto here — needs an https:// or localhost address, not file://");
+  let plain = new TextEncoder().encode(appHtml);
+  let gz = false;
+  // 640 KB of HTML gzips to about a fifth of that, and the loader has to ship
+  // base64, which adds a third back. Worth it; skipped where unsupported.
+  if(typeof CompressionStream !== "undefined"){
+    try{
+      const s = new Blob([plain]).stream().pipeThrough(new CompressionStream("gzip"));
+      plain = new Uint8Array(await new Response(s).arrayBuffer());
+      gz = true;
+    }catch(e){ /* fall through uncompressed */ }
+  }
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv   = crypto.getRandomValues(new Uint8Array(12));
+  const key  = await deriveAppKey(password, salt, "encrypt");
+  const ct   = new Uint8Array(await crypto.subtle.encrypt({ name:"AES-GCM", iv }, key, plain));
+
+  const payload = JSON.stringify({ v:1, marker:APP_LOCK_MARKER, iter:APP_LOCK_ITER, gz:gz,
+    salt:b64FromBytes(salt), iv:b64FromBytes(iv), ct:b64FromBytes(ct) });
+
+  // Verify before shipping: decrypt the ciphertext we just made and compare.
+  const back = await unlockAppPayload(JSON.parse(payload), password);
+  if(back !== appHtml) throw new Error("the encrypted copy did not decrypt back to the original — nothing was published");
+
+  return `<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+<meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet">
+<meta name="referrer" content="no-referrer">
+<title>WHS Fantasy Football</title>
+<style>
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(180deg,#224533 0%,#193527 100%);color:#f6f2e7;
+    font-family:"Helvetica Neue",Arial,sans-serif;padding:24px;}
+  .card{background:#2a533d;border:1px solid #3f5f4b;border-radius:8px;padding:26px 24px;
+    width:100%;max-width:380px;}
+  h1{font-family:"Arial Narrow",Impact,sans-serif;text-transform:uppercase;letter-spacing:.04em;
+    font-size:20px;margin:0 0 6px 0;} h1 span{color:#f0b42e;}
+  p{color:#c6d2c5;font-size:13px;line-height:1.5;margin:0 0 16px 0;}
+  input{width:100%;box-sizing:border-box;padding:10px;font-size:15px;border-radius:4px;
+    border:1px solid #3f5f4b;background:#193527;color:#f6f2e7;}
+  button{width:100%;margin-top:10px;padding:10px;font-size:14px;font-weight:700;cursor:pointer;
+    border:0;border-radius:4px;background:#f0b42e;color:#193527;}
+  button[disabled]{opacity:.6;cursor:default;}
+  .msg{min-height:18px;margin-top:10px;font-size:12.5px;color:#e57450;}
+</style></head>
+<body>
+<div class="card">
+  <h1>WHS <span>Commissioner</span></h1>
+  <p>This page is encrypted. The password decrypts it in your browser — nothing is sent anywhere.</p>
+  <form id="f"><input type="password" id="pw" autocomplete="current-password" placeholder="Password" autofocus>
+  <button type="submit" id="go">Unlock</button></form>
+  <div class="msg" id="msg"></div>
+</div>
+<script type="application/json" id="blob">${payload}<\/script>
+<script>
+(function(){
+  var P = JSON.parse(document.getElementById("blob").textContent);
+  var msg = function(t){ document.getElementById("msg").textContent = t; };
+  var b64 = function(s){ return Uint8Array.from(atob(s), function(c){ return c.charCodeAt(0); }); };
+  if(!(window.crypto && crypto.subtle)){
+    msg("This browser cannot decrypt here. Open the https:// address, not a local file.");
+    document.getElementById("go").disabled = true; return;
+  }
+  document.getElementById("f").addEventListener("submit", function(ev){
+    ev.preventDefault();
+    var pw = document.getElementById("pw").value;
+    if(!pw){ msg("Type the password."); return; }
+    var go = document.getElementById("go");
+    go.disabled = true; go.textContent = "Unlocking\\u2026"; msg("");
+    crypto.subtle.importKey("raw", new TextEncoder().encode(pw), "PBKDF2", false, ["deriveKey"])
+      .then(function(km){
+        return crypto.subtle.deriveKey(
+          { name:"PBKDF2", salt:b64(P.salt), iterations:P.iter, hash:"SHA-256" },
+          km, { name:"AES-GCM", length:256 }, false, ["decrypt"]);
+      })
+      .then(function(key){
+        return crypto.subtle.decrypt({ name:"AES-GCM", iv:b64(P.iv) }, key, b64(P.ct));
+      })
+      .then(function(buf){
+        if(!P.gz) return buf;
+        if(typeof DecompressionStream === "undefined")
+          throw new Error("This browser is too old to unpack the page.");
+        return new Response(new Blob([buf]).stream()
+          .pipeThrough(new DecompressionStream("gzip"))).arrayBuffer();
+      })
+      .then(function(buf){
+        var html = new TextDecoder().decode(buf);
+        document.open(); document.write(html); document.close();
+      })
+      .catch(function(e){
+        go.disabled = false; go.textContent = "Unlock";
+        msg(/too old/.test(e.message || "") ? e.message : "Wrong password.");
+      });
+  });
+})();
+<\/script>
+</body></html>`;
+}
+
+async function unlockAppPayload(P, password){
+  const b64 = (s) => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+  const key = await deriveAppKey(password, b64(P.salt), "decrypt");
+  let buf = await crypto.subtle.decrypt({ name:"AES-GCM", iv:b64(P.iv) }, key, b64(P.ct));
+  if(P.gz){
+    const s = new Blob([buf]).stream().pipeThrough(new DecompressionStream("gzip"));
+    buf = await new Response(s).arrayBuffer();
+  }
+  return new TextDecoder().decode(buf);
+}
+
 window.publishAppToPages = async function(){
   const { token, owner, repo } = STATE.github || {};
   if(!token || !owner || !repo){ uiAlert("Connect GitHub first."); return; }
@@ -5390,8 +5763,30 @@ window.publishAppToPages = async function(){
     const res = await fetch(location.href, { cache: "no-store" });
     if(!res.ok) throw new Error("couldn't read this page's own source (HTTP " + res.status + ")");
     const html = await res.text();
+    /* Reached from the locked URL, "its own source" is the loader, not the app.
+       Publishing that would wrap a lock around a lock. Say so plainly instead of
+       letting the title check fail with something unhelpful. */
+    if(html.indexOf(APP_LOCK_MARKER) !== -1)
+      throw new Error("this page is the locked loader, so its own source is encrypted — " +
+                      "use \"Update from a file\" and pick the .html from your project folder");
     if(!/<title>Keeper League Command Center<\/title>/i.test(html))
       throw new Error("that didn't look like the app's source");
+
+    /* Whatever is up there now is what this is about to replace. If it is locked,
+       republishing plain would quietly take the password off a public page, and
+       nobody would find out until someone else opened the URL. */
+    const already = await fetch(`https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/app.html`,
+      { headers: { "Authorization": "Bearer " + token, "Accept": "application/vnd.github.raw" }, cache: "no-store" })
+      .then(r => r.ok ? r.text() : "").catch(() => "");
+    if(already.indexOf(APP_LOCK_MARKER) !== -1){
+      const drop = await uiConfirm(
+        "The published app is password-protected right now, and this button can only " +
+        "publish it unprotected.\n\nDoing it would take the password off " + appUrl +
+        " and leave it open to anyone with the URL.\n\nUse \"Update from a file\" " +
+        "instead — that one asks for a password.",
+        "Remove the password?");
+      if(!drop) return;
+    }
 
     const { url, headers } = ghApi("app.html");
     let sha = null;
@@ -5454,6 +5849,33 @@ window.publishAppFromFile = async function(ev){
               "A live credential must never reach a public address.", "Refused");
       return;
     }
+    /* Ask every time, and never default to unprotected. A blank box is a refusal
+       (uiPassword resolves null, not ""), so nothing reaches a public address
+       unless a password was typed twice or the lock was turned off on purpose. */
+    let payloadHtml = html, locked = false;
+    const pw = await uiPassword(
+      "Set the password for " + appUrl + NL + NL +
+      "The app is encrypted with it before it is published. Anyone opening that URL " +
+      "without the password gets a locked page and nothing else." + NL + NL +
+      "Nobody can recover this for you. If you forget it, open " +
+      "Keeper_League_Command_Center.html from your project folder and publish again " +
+      "with a new one — your data is untouched either way, it lives in the sync repo.",
+      "Password-protect the published app",
+      { promptLabel: "Password", promptAgain: "Password again", promptMin: 8,
+        cancelLabel: "Publish unprotected…" });
+    if(pw === null){
+      const plain = await uiConfirm(
+        "Publish " + f.name + " with no password?" + NL + NL +
+        "Anyone with the URL will be able to open the commissioner app. It carries no " +
+        "token and no live data, but it does carry the league's rosters, ten seasons of " +
+        "history, the Yahoo team-name map and the league id.",
+        "Publish unprotected");
+      if(!plain) return;
+    } else {
+      if(btn) btn.textContent = "Encrypting...";
+      payloadHtml = await buildLockedAppHTML(html, pw);
+      locked = true;
+    }
     if(btn) btn.textContent = "Publishing...";
 
     const api = ghApi("app.html");
@@ -5462,10 +5884,10 @@ window.publishAppFromFile = async function(ev){
     if(head.status === 200) sha = (await head.json()).sha;
     else if(head.status !== 404) throw new Error("HTTP " + head.status + " checking the existing file");
 
-    const bytes = new TextEncoder().encode(html);
-    let bin = ""; bytes.forEach(b => bin += String.fromCharCode(b));
-    const body = { message: "Update the commissioner app - " + new Date().toISOString().slice(0,10),
-                   content: btoa(bin) };
+    const body = { message: (locked ? "Update the commissioner app (locked) - "
+                                    : "Update the commissioner app - ")
+                            + new Date().toISOString().slice(0,10),
+                   content: b64FromBytes(new TextEncoder().encode(payloadHtml)) };
     if(sha) body.sha = sha;
     const put = await fetch(api.url, { method: "PUT",
       headers: Object.assign({}, api.headers, { "Content-Type": "application/json" }),
@@ -5483,9 +5905,14 @@ window.publishAppFromFile = async function(ev){
     try{ localStorage.setItem(PENDING_PUBLISH_KEY, "1"); }catch(e){}
     render();
     uiAlert("Published " + f.name + " to:" + NL + NL + appUrl + NL + NL +
+            (locked
+              ? "It is encrypted. That URL now asks for the password before it will show " +
+                "anything, on every device, every visit." + NL + NL
+              : "") +
             "Reload that page in a minute. The league page then republishes itself " +
             "automatically, so the app and the page can never drift apart." + NL + NL +
-            "Your data is untouched - this replaces the code only.", "App updated");
+            "Your data is untouched - this replaces the code only.",
+            locked ? "App updated and locked" : "App updated");
   }catch(e){
     uiAlert("Couldn't publish that file." + NL + NL + (e && e.message ? e.message : ""));
   }finally{
@@ -5770,6 +6197,115 @@ function workflowSVG(season){
                role="img" aria-label="Keeper season workflow, eight steps">${rows}</svg>`;
 }
 
+/* Where everything lives. Written after the same question got asked twice:
+   which button moves the data, and which one moves the code.
+
+   The repo names are read live from STATE rather than written down, so this
+   diagram is also a status readout -- if it shows the wrong target, the target
+   IS wrong. The one exception is the git source repo: the app genuinely does
+   not know it (that is `origin` on the machine, not anything in STATE), so it
+   is described rather than named. Naming it here would be inventing a fact. */
+function dataFlowSVG(){
+  const g = STATE.github || {};
+  const owner = (g.owner || "").trim();
+  const connected = !!(owner && (g.repo || "").trim());
+  // Never glue a path onto the placeholder -- "not connected yet/app.html" is
+  // nonsense, and a diagram that renders nonsense when unconfigured is worse
+  // than one that says plainly that it is unconfigured.
+  const target = (repo, file) => !owner || !repo ? "not connected yet"
+                                                 : owner + "/" + repo + "/" + file;
+  const dataRepo = !owner || !syncRepoName() ? "not connected yet"
+                                             : owner + "/" + syncRepoName();
+  const pagesRepo = (g.repo || "").trim();
+  const clash = cloudConfigured() && syncRepoName() === pagesRepo;
+
+  // from, fromSub, label, payload, to, toSub, kind, bidirectional
+  // Labels are sized to the boxes below; keep them short or they overrun.
+  const flows = [
+    ["This app, in your browser", "STATE in localStorage — the live data",
+     "on every save, and on demand", "whs-keeper-sync.json",
+     dataRepo, clash ? "PUBLIC — same repo as the page"
+                     : (connected ? "private — data only" : "set this in Settings"), "data", true],
+    ["The file on your machine", "the real source, in your project folder",
+     "git commit and push", "the whole project folder",
+     "your private source repo", "private — the code's history", "code", false],
+    ["The file on your machine", "the same file, sent up as a copy",
+     "“Update from a file”", "app.html, encrypted first",
+     target(pagesRepo, "app.html"), "public — the hosted app", "code", false],
+    ["This app, in your browser", "renders the page from the live data",
+     "“Publish live to GitHub Pages”", "index.html",
+     target(pagesRepo, "index.html"), "public — what the league reads", "page", false]
+  ];
+  const tone = { data:"var(--ok)", code:"var(--gold)", page:"#3d6ea8" };
+  const BH = 58, LANE = 80, TOP = 8, W = 680;
+  const h = TOP + flows.length * LANE;
+
+  const lanes = flows.map((f, i) => {
+    const y = TOP + i * LANE, mid = y + BH / 2, c = tone[f[6]];
+    const bad = f[6] === "data" && clash;
+    const head = f[7]
+      ? `<polygon points="462,${mid} 452,${mid-5} 452,${mid+5}" fill="${c}"/>
+         <polygon points="212,${mid} 222,${mid-5} 222,${mid+5}" fill="${c}"/>
+         <line x1="222" y1="${mid}" x2="452" y2="${mid}" stroke="${c}" stroke-width="2"/>`
+      : `<polygon points="462,${mid} 452,${mid-5} 452,${mid+5}" fill="${c}"/>
+         <line x1="212" y1="${mid}" x2="452" y2="${mid}" stroke="${c}" stroke-width="2"/>`;
+    return `${head}
+      <rect x="6" y="${y}" width="200" height="${BH}" rx="6" fill="var(--card)"
+            stroke="${c}" stroke-opacity="0.55"/>
+      <text x="18" y="${y+23}" font-size="12" font-weight="bold" fill="var(--chalk)"
+            font-family="Helvetica Neue,Arial,sans-serif">${esc(f[0])}</text>
+      <text x="18" y="${y+41}" font-size="10" fill="var(--chalk-dim)"
+            font-family="Helvetica Neue,Arial,sans-serif">${esc(f[1])}</text>
+      <text x="337" y="${mid-9}" text-anchor="middle" font-size="11" font-weight="bold" fill="${c}"
+            font-family="Helvetica Neue,Arial,sans-serif">${esc(f[2])}</text>
+      <text x="337" y="${mid+18}" text-anchor="middle" font-size="10" fill="var(--chalk-dim)"
+            font-family="SFMono-Regular,Menlo,monospace">${esc(f[3])}</text>
+      <rect x="470" y="${y}" width="204" height="${BH}" rx="6" fill="var(--card)"
+            stroke="${bad ? "var(--danger)" : c}" stroke-opacity="${bad ? "1" : "0.55"}"/>
+      <text x="482" y="${y+23}" font-size="11" font-weight="bold" fill="var(--chalk)"
+            font-family="SFMono-Regular,Menlo,monospace">${esc(f[4])}</text>
+      <text x="482" y="${y+41}" font-size="10" fill="${bad ? "var(--danger)" : "var(--chalk-dim)"}"
+            font-family="Helvetica Neue,Arial,sans-serif">${esc(f[5])}</text>`;
+  }).join("");
+
+  return `<svg viewBox="0 0 ${W} ${h}" width="100%" style="max-width:${W}px;display:block;margin:6px 0 4px;"
+    role="img" aria-label="How data and source code flow between this app and GitHub">${lanes}</svg>`;
+}
+
+/* The same four flows as a table, because a diagram is for seeing the shape and
+   a table is for looking one up. */
+function dataFlowTable(){
+  const g = STATE.github || {};
+  const owner = (g.owner || "").trim();
+  const named = (r) => owner && r ? owner + "/" + r : "<i>not connected yet</i>";
+  const pages = named((g.repo || "").trim());
+  const data  = named(syncRepoName());
+  const clash = cloudConfigured() && syncRepoName() === (g.repo || "").trim();
+
+  const rows = [
+    ["Any save, automatically · <b>Sync now</b> · <b>Pull from cloud</b>",
+     "whs-keeper-sync.json", data + (clash
+       ? ` <b style="color:var(--danger);">— the public page repo</b>` : ""),
+     "<b>Your data.</b> Rosters, payouts, draft order, key dates. Read on load, written on save."],
+    ["<b>Update from a file</b>", "app.html", pages,
+     "<b>The app's code</b> — the hosted copy of it. Encrypted with your password on the way up."],
+    ["<b>Publish live to GitHub Pages</b>", "index.html", pages,
+     "<b>The league page.</b> Generated output, read-only, no controls."],
+    ["Nothing in the app — this is git, from your machine",
+     "the whole project folder", "your private source repo",
+     "<b>The app's code</b> — its actual history, commit by commit."]
+  ].map(r => `<tr>
+      <td style="vertical-align:top;">${r[0]}</td>
+      <td class="mono" style="vertical-align:top;font-size:12px;">${r[1]}</td>
+      <td class="mono" style="vertical-align:top;font-size:12px;">${r[2]}</td>
+      <td style="vertical-align:top;color:var(--chalk-dim);">${r[3]}</td>
+    </tr>`).join("");
+
+  return `<table class="previewtable">
+    <thead><tr><th>What you do</th><th>Writes</th><th>Where it lands</th><th>What it is</th></tr></thead>
+    <tbody>${rows}</tbody></table>`;
+}
+
 function renderGuidePanel(){
   const season = STATE.season;
   const prev = season - 1;
@@ -5858,6 +6394,60 @@ function renderGuidePanel(){
   </div>
 
   <div class="grid-owner">
+    <h4>Where everything lives</h4>
+    <div class="import-help">
+      Four things move between this app and GitHub, and it is worth knowing which button
+      moves which. <b>Two of them carry your data. Two of them carry the app's own code.</b>
+      They go to different repos on purpose &mdash; the app writes to the data repo dozens of
+      times a session, and that traffic has no business in the code's commit history.
+      <br><br>
+      The repo names below are read live from your settings, so this doubles as a check:
+      if a box names the wrong repo, the setting is wrong.
+    </div>
+    ${dataFlowSVG()}
+    <div class="import-help" style="margin-top:6px;">
+      <span style="color:var(--ok);">&#9679;</span> your data &nbsp;
+      <span style="color:var(--gold);">&#9679;</span> the app's code &nbsp;
+      <span style="color:#3d6ea8;">&#9679;</span> the league page
+    </div>
+    ${dataFlowTable()}
+    <p class="pnote" style="font-size:12px;">The file on your machine is the real source. The
+      hosted copy is a deployment of it, and the private source repo is its history &mdash;
+      neither is the original.</p>
+  </div>
+
+  <div class="grid-owner">
+    <h4>Bringing everything up to date, in order</h4>
+    <div class="import-help">
+      The order is not arbitrary. <b>The league page is rendered by whatever code is running
+      at the time</b>, so publishing it before the new code is loaded ships the old rendering.
+    </div>
+    <ol style="line-height:1.8; font-size:14px; color:var(--chalk-dim); padding-left:20px;">
+      <li><b>Update from a file</b> &mdash; on the machine with the project folder, since it
+        has to read <span class="mono">Keeper_League_Command_Center.html</span> off disk. This
+        replaces the hosted <span class="mono">app.html</span>, encrypted with your password.
+        It updates the <i>deployed build</i>, not the code's history.</li>
+      <li><b>Reload the hosted URL and unlock it.</b> Until you do, you are still running the
+        old code. This step also fires the league-page republish automatically &mdash; the
+        update sets a flag, and the next load spends it.</li>
+      <li><b>Pull from cloud</b> &mdash; only worth pressing on a browser that might be behind
+        another device. Every load already pulls, and a push is <i>held</i> until a pull has
+        succeeded, so you cannot overwrite good cloud data with a stale local copy by
+        accident.</li>
+      <li><b>Sync now</b> &mdash; only if you want to stop waiting. Every save pushes on its
+        own a few seconds after you stop typing.</li>
+      <li><b>Publish live to GitHub Pages</b> &mdash; only needed when the <i>data</i> changed
+        but the code did not. If you just did steps 1&ndash;2, this already happened.</li>
+    </ol>
+    <div class="import-help" style="margin-top:10px;">
+      <b>The one thing no button in here does:</b> commit the code to your private source
+      repo. That is git, run on your machine, and it is what preserves the history rather
+      than just the current build. Losing it would not cost you any league data &mdash; that
+      lives in the data repo &mdash; but it would cost you every past version of the app.
+    </div>
+  </div>
+
+  <div class="grid-owner">
     <h4>If something looks wrong</h4>
     <div class="import-help">
       <b>"Nothing was filled" and a list of players.</b> The costs file doesn't match who
@@ -5905,12 +6495,13 @@ function renderHallPanel(){
     <td class="pname">${esc(h.sacko.owner)} <span class="pnote">${esc(h.sacko.team)}</span></td>
     <td class="pnote" style="font-style:italic;">${esc(quip())}</td></tr>`).join("");
 
-  const statCard = (title, items, unit) => `<div class="grid-owner" style="flex:1;min-width:220px;">
+  const statCard = (title, items, unit, note) => `<div class="grid-owner" style="flex:1;min-width:220px;">
     <h4>${title}</h4>
     <table class="previewtable"><tbody>${items.slice(0,5).map((r,i)=>
       `<tr${i===0?' class="iskeeper"':''}><td>${esc(r.owner)}</td>
         <td class="mono" style="text-align:right">${unit==="$" ? money(r.n) : r.n}</td></tr>`).join("")
-      || '<tr><td class="pnote">Nothing yet.</td></tr>'}</tbody></table></div>`;
+      || '<tr><td class="pnote">Nothing yet.</td></tr>'}</tbody></table>
+    ${note ? `<div class="pnote" style="margin-top:6px;">${note}</div>` : ""}</div>`;
 
   return `<div class="grid-owner">
       <h4>League Champions</h4>
@@ -5920,9 +6511,9 @@ function renderHallPanel(){
     </div>
     <div class="grid-owner">
       <h4>The Sacko Wall</h4>
-      <div class="import-help">No punishments — thank Yi — so instead last place gets
-        immortalized right here, with a fresh roast every time you look. These publish
-        straight to the league page for everyone to see.</div>
+      <div class="import-help">No punishments in this league, so instead last place
+        gets immortalized right here, with a fresh roast every time you look. These
+        publish straight to the league page for everyone to see.</div>
       <table class="previewtable">
         <thead><tr><th>Year</th><th>Sacko</th><th>For the record</th></tr></thead>
         <tbody>${sackoRows}</tbody></table>
@@ -5933,7 +6524,9 @@ function renderHallPanel(){
       ${statCard("Most sackos", s.sackos)}
       ${statCard("Most keepers", s.keeps)}
       ${statCard("Full 3-year keeps", s.runs)}
-      ${statCard("Most winnings", s.winnings, "$")}
+      ${statCard("Most winnings", s.winnings, "$",
+        "Counted from " + Math.min(...Object.keys(STATE.payouts||{2025:1}).map(Number)) +
+        ", when we started tracking the pot here.")}
     </div>`;
 }
 
