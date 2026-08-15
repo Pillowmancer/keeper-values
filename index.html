@@ -27,6 +27,12 @@
   .rules ol, .rules ul{margin:0; padding-left:20px; color:var(--chalk-dim); font-size:13.5px; line-height:1.75;}
   .rules li{margin-bottom:8px;}
   .rules li b{color:var(--chalk);}
+  /* Worked examples sit under each rule, visibly subordinate to it — the rule is
+     the law, the example is only there to remove doubt about what it means. */
+  .rules li .ex{display:block; margin:6px 0 2px 0; padding:7px 11px; font-size:12.5px;
+    line-height:1.65; color:var(--chalk-dim); background:rgba(0,0,0,0.16);
+    border-left:2px solid var(--gold-dim); border-radius:0 4px 4px 0;}
+  .rules li .ex b{color:var(--gold);}
   footer{text-align:center; color:var(--chalk-dim); font-size:11px; margin-top:36px; letter-spacing:0.04em;}
   .pagenav{display:flex; flex-wrap:wrap; gap:8px; margin:0 0 24px 0;}
   .pagenav a{color:var(--gold); text-decoration:none; font-size:12px; font-weight:700;
@@ -193,7 +199,7 @@
       <span class="cdwhen">Saturday, August 15, 2026 at 12:00 AM PDT</span>
       <div class="cdcal">
     <a class="chip cal" href="https://calendar.google.com/calendar/render?action=TEMPLATE&amp;text=2026%20WHS%20keeper%20deadline&amp;dates=20260815T000000/20260815T003000&amp;ctz=America%2FLos_Angeles&amp;details=Set%20your%20two%20keepers%20in%20Yahoo%20before%20this%20deadline." target="_blank" rel="noopener noreferrer">+ Google Calendar</a>
-    <a class="chip cal" href="data:text/calendar;charset=utf-8,BEGIN%3AVCALENDAR%0D%0AVERSION%3A2.0%0D%0APRODID%3A-%2F%2FWHS%20Fantasy%20Football%2F%2FEN%0D%0ACALSCALE%3AGREGORIAN%0D%0AMETHOD%3APUBLISH%0D%0ABEGIN%3AVEVENT%0D%0AUID%3Awhs-2026-keeper-deadline%40whs-fantasy-football%0D%0ASEQUENCE%3A7%0D%0ADTSTAMP%3A20260815T165300Z%0D%0ALAST-MODIFIED%3A20260815T165300Z%0D%0ADTSTART%3A20260815T070000Z%0D%0ADTEND%3A20260815T073000Z%0D%0ASUMMARY%3A2026%20WHS%20keeper%20deadline%0D%0ADESCRIPTION%3ASet%20your%20two%20keepers%20in%20Yahoo%20before%20this%20deadline.%0D%0ASTATUS%3ACONFIRMED%0D%0ATRANSP%3AOPAQUE%0D%0ABEGIN%3AVALARM%0D%0ATRIGGER%3A-PT1H%0D%0AACTION%3ADISPLAY%0D%0ADESCRIPTION%3A2026%20WHS%20keeper%20deadline%0D%0AEND%3AVALARM%0D%0AEND%3AVEVENT%0D%0AEND%3AVCALENDAR%0D%0A"
+    <a class="chip cal" href="data:text/calendar;charset=utf-8,BEGIN%3AVCALENDAR%0D%0AVERSION%3A2.0%0D%0APRODID%3A-%2F%2FWHS%20Fantasy%20Football%2F%2FEN%0D%0ACALSCALE%3AGREGORIAN%0D%0AMETHOD%3APUBLISH%0D%0ABEGIN%3AVEVENT%0D%0AUID%3Awhs-2026-keeper-deadline%40whs-fantasy-football%0D%0ASEQUENCE%3A7%0D%0ADTSTAMP%3A20260815T180200Z%0D%0ALAST-MODIFIED%3A20260815T180200Z%0D%0ADTSTART%3A20260815T070000Z%0D%0ADTEND%3A20260815T073000Z%0D%0ASUMMARY%3A2026%20WHS%20keeper%20deadline%0D%0ADESCRIPTION%3ASet%20your%20two%20keepers%20in%20Yahoo%20before%20this%20deadline.%0D%0ASTATUS%3ACONFIRMED%0D%0ATRANSP%3AOPAQUE%0D%0ABEGIN%3AVALARM%0D%0ATRIGGER%3A-PT1H%0D%0AACTION%3ADISPLAY%0D%0ADESCRIPTION%3A2026%20WHS%20keeper%20deadline%0D%0AEND%3AVALARM%0D%0AEND%3AVEVENT%0D%0AEND%3AVCALENDAR%0D%0A"
        download="2026-whs-keeper-deadline.ics">+ Apple / Outlook (.ics)</a>
   </div>
       
@@ -209,7 +215,7 @@
       <span class="cdwhen">Sunday, August 16, 2026 at 7:00 PM PDT</span>
       <div class="cdcal">
     <a class="chip cal" href="https://calendar.google.com/calendar/render?action=TEMPLATE&amp;text=2026%20WHS%20Fantasy%20Football%20draft&amp;dates=20260816T190000/20260816T220000&amp;ctz=America%2FLos_Angeles&amp;location=BJ's%20Restaurant%20%26%20Brewhouse%2C%2011101%20183rd%20St%2C%20Cerritos%2C%20CA%2090703" target="_blank" rel="noopener noreferrer">+ Google Calendar</a>
-    <a class="chip cal" href="data:text/calendar;charset=utf-8,BEGIN%3AVCALENDAR%0D%0AVERSION%3A2.0%0D%0APRODID%3A-%2F%2FWHS%20Fantasy%20Football%2F%2FEN%0D%0ACALSCALE%3AGREGORIAN%0D%0AMETHOD%3APUBLISH%0D%0ABEGIN%3AVEVENT%0D%0AUID%3Awhs-2026-draft%40whs-fantasy-football%0D%0ASEQUENCE%3A7%0D%0ADTSTAMP%3A20260815T165300Z%0D%0ALAST-MODIFIED%3A20260815T165300Z%0D%0ADTSTART%3A20260817T020000Z%0D%0ADTEND%3A20260817T050000Z%0D%0ASUMMARY%3A2026%20WHS%20Fantasy%20Football%20draft%0D%0ALOCATION%3ABJ's%20Restaurant%20%26%20Brewhouse%5C%2C%2011101%20183rd%20St%5C%2C%20Cerritos%5C%2C%20CA%2090703%0D%0ASTATUS%3ACONFIRMED%0D%0ATRANSP%3AOPAQUE%0D%0ABEGIN%3AVALARM%0D%0ATRIGGER%3A-PT1H%0D%0AACTION%3ADISPLAY%0D%0ADESCRIPTION%3A2026%20WHS%20Fantasy%20Football%20draft%0D%0AEND%3AVALARM%0D%0AEND%3AVEVENT%0D%0AEND%3AVCALENDAR%0D%0A"
+    <a class="chip cal" href="data:text/calendar;charset=utf-8,BEGIN%3AVCALENDAR%0D%0AVERSION%3A2.0%0D%0APRODID%3A-%2F%2FWHS%20Fantasy%20Football%2F%2FEN%0D%0ACALSCALE%3AGREGORIAN%0D%0AMETHOD%3APUBLISH%0D%0ABEGIN%3AVEVENT%0D%0AUID%3Awhs-2026-draft%40whs-fantasy-football%0D%0ASEQUENCE%3A7%0D%0ADTSTAMP%3A20260815T180200Z%0D%0ALAST-MODIFIED%3A20260815T180200Z%0D%0ADTSTART%3A20260817T020000Z%0D%0ADTEND%3A20260817T050000Z%0D%0ASUMMARY%3A2026%20WHS%20Fantasy%20Football%20draft%0D%0ALOCATION%3ABJ's%20Restaurant%20%26%20Brewhouse%5C%2C%2011101%20183rd%20St%5C%2C%20Cerritos%5C%2C%20CA%2090703%0D%0ASTATUS%3ACONFIRMED%0D%0ATRANSP%3AOPAQUE%0D%0ABEGIN%3AVALARM%0D%0ATRIGGER%3A-PT1H%0D%0AACTION%3ADISPLAY%0D%0ADESCRIPTION%3A2026%20WHS%20Fantasy%20Football%20draft%0D%0AEND%3AVALARM%0D%0AEND%3AVEVENT%0D%0AEND%3AVCALENDAR%0D%0A"
        download="2026-whs-fantasy-football-draft.ics">+ Apple / Outlook (.ics)</a>
   </div>
       <div class="cdwhere">&#128205; <b>BJ's Restaurant &amp; Brewhouse</b><br>11101 183rd St, Cerritos, CA 90703<br>
@@ -286,7 +292,7 @@
     </div>
     <div class="values-detailed"><details class="histowner">
       <summary><h2>Anish</h2>
-        <span class="histmeta">14 players</span></summary>
+        <span class="histmeta">14 players · keeping 1</span></summary>
       <table class="histtable">
         <thead><tr>
           <th style="width:22%">Player</th>
@@ -307,12 +313,12 @@
         <td><div class="pillline"><span class="chip">2025 · drafted Rd3</span></div><div class="yearsline">1 of 3 years with Anish</div></td>
         <td class="costcell"><span class="val">3</span></td>
         <td class="keptcell"></td>
-      </tr><tr class="">
+      </tr><tr class="keptrow">
         <td class="pcell">Jaylen Waddle <span class="postag">WR</span><div class="pubnote">Drafted round 6 in 2025.</div></td>
         <td class="rdcell">6</td>
         <td><div class="pillline"><span class="chip">2025 · drafted Rd6</span></div><div class="pillline"><span class="chip">2026 · kept Rd6</span></div><div class="yearsline">1 of 3 years with Anish</div></td>
         <td class="costcell"><span class="val">6</span></td>
-        <td class="keptcell"></td>
+        <td class="keptcell"><span class="keptmark">KEEPING</span></td>
       </tr><tr class="">
         <td class="pcell">De'Von Achane <span class="postag">RB</span><div class="pubnote">Drafted round 2 in 2025.</div></td>
         <td class="rdcell">2</td>
@@ -383,7 +389,7 @@
       </table>
     </details><details class="histowner">
       <summary><h2>Eric</h2>
-        <span class="histmeta">15 players</span></summary>
+        <span class="histmeta">15 players · keeping 1</span></summary>
       <table class="histtable">
         <thead><tr>
           <th style="width:22%">Player</th>
@@ -446,12 +452,12 @@
         <td><div class="pillline"><span class="chip">2025 · drafted Rd13</span></div><div class="yearsline">1 of 3 years with Eric</div></td>
         <td class="costcell"><span class="val">8</span></td>
         <td class="keptcell"></td>
-      </tr><tr class="">
+      </tr><tr class="keptrow">
         <td class="pcell">Rashee Rice <span class="postag">WR</span><div class="pubnote">Drafted round 9 in 2025 — rule 6: round 8 or later costs an 8.</div></td>
         <td class="rdcell">9</td>
         <td><div class="pillline"><span class="chip">2025 · drafted Rd9</span></div><div class="pillline"><span class="chip">2026 · kept Rd8</span></div><div class="yearsline">1 of 3 years with Eric</div></td>
         <td class="costcell"><span class="val">8</span></td>
-        <td class="keptcell"></td>
+        <td class="keptcell"><span class="keptmark">KEEPING</span></td>
       </tr><tr class="">
         <td class="pcell">Chris Rodriguez Jr. <span class="postag">RB</span><div class="pubnote">Added via FA or waivers during 2025 — rule 6: picked up in season, so he costs an 8.</div></td>
         <td class="rdcell">—</td>
@@ -486,7 +492,7 @@
       </table>
     </details><details class="histowner">
       <summary><h2>Frank</h2>
-        <span class="histmeta">16 players</span></summary>
+        <span class="histmeta">16 players · keeping 2</span></summary>
       <table class="histtable">
         <thead><tr>
           <th style="width:22%">Player</th>
@@ -519,12 +525,12 @@
         <td><div class="pillline"><span class="chip">2024 · drafted Rd2</span></div><div class="pillline"><span class="chip">2025 · kept Rd2</span></div><div class="yearsline">2 of 3 years with Frank</div></td>
         <td class="costcell"><span class="val zero">0 &middot; Ineligible</span><div><span class="inelig">Reached 1st-round value — no longer keepable</span></div></td>
         <td class="keptcell"></td>
-      </tr><tr class="">
+      </tr><tr class="keptrow">
         <td class="pcell">Chase Brown <span class="postag">RB</span><div class="pubnote">Kept 2025 — each year kept moves the price up a round.</div></td>
         <td class="rdcell">8</td>
         <td><div class="pillline"><span class="chip">2024 · drafted Rd12</span></div><div class="pillline"><span class="chip">2025 · kept Rd8</span></div><div class="pillline"><span class="chip">2026 · kept Rd7</span></div><div class="yearsline">2 of 3 years with Frank</div></td>
         <td class="costcell"><span class="val">7</span></td>
-        <td class="keptcell"></td>
+        <td class="keptcell"><span class="keptmark">KEEPING</span></td>
       </tr><tr class="dimrow">
         <td class="pcell">Harold Fannin Jr. <span class="postag">TE</span><div class="pubnote">Added via FA or waivers on 2025-12-10 during the 2025 season. The cutoff was Dec 1, four weeks before the season ended Dec 29.</div></td>
         <td class="rdcell">—</td>
@@ -573,12 +579,12 @@
         <td><div class="pillline"><span class="chip">2025 · added FA/waivers</span></div><div class="yearsline">1 of 3 years with Frank</div></td>
         <td class="costcell"><span class="val zero">0 &middot; Ineligible</span><div><span class="inelig">Added 2025-12-25 — under 4 weeks rostered before the Dec 1 cutoff (rule 8)</span></div></td>
         <td class="keptcell"></td>
-      </tr><tr class="">
+      </tr><tr class="keptrow">
         <td class="pcell">Quinshon Judkins <span class="postag">RB</span><div class="pubnote">Added via FA or waivers during 2025 — rule 6: picked up in season, so he costs an 8.</div></td>
         <td class="rdcell">—</td>
         <td><div class="pillline"><span class="chip">2025 · added FA/waivers</span></div><div class="pillline"><span class="chip">2026 · kept Rd8</span></div><div class="yearsline">1 of 3 years with Frank</div></td>
         <td class="costcell"><span class="val">8</span></td>
-        <td class="keptcell"></td>
+        <td class="keptcell"><span class="keptmark">KEEPING</span></td>
       </tr><tr class="">
         <td class="pcell">Texans DEF <span class="postag">DEF</span><div class="pubnote">Drafted round 14 in 2025 — rule 6: round 8 or later costs an 8.</div></td>
         <td class="rdcell">14</td>
@@ -698,7 +704,7 @@
       </table>
     </details><details class="histowner">
       <summary><h2>Neil</h2>
-        <span class="histmeta">15 players</span></summary>
+        <span class="histmeta">15 players · keeping 2</span></summary>
       <table class="histtable">
         <thead><tr>
           <th style="width:22%">Player</th>
@@ -713,18 +719,18 @@
         <td><div class="pillline"><span class="chip">2025 · drafted Rd12</span></div><div class="yearsline">1 of 3 years with Neil</div></td>
         <td class="costcell"><span class="val">8</span></td>
         <td class="keptcell"></td>
-      </tr><tr class="">
+      </tr><tr class="keptrow">
         <td class="pcell">Emeka Egbuka <span class="postag">WR</span><div class="pubnote">Drafted round 8 in 2025.</div></td>
         <td class="rdcell">8</td>
         <td><div class="pillline"><span class="chip">2025 · drafted Rd8</span></div><div class="pillline"><span class="chip">2026 · kept Rd8</span></div><div class="yearsline">1 of 3 years with Neil</div></td>
         <td class="costcell"><span class="val">8</span></td>
-        <td class="keptcell"></td>
-      </tr><tr class="">
+        <td class="keptcell"><span class="keptmark">KEEPING</span></td>
+      </tr><tr class="keptrow">
         <td class="pcell">George Pickens <span class="postag">WR</span><div class="pubnote">Drafted round 5 in 2025.</div></td>
         <td class="rdcell">5</td>
         <td><div class="pillline"><span class="chip">2025 · drafted Rd5</span></div><div class="pillline"><span class="chip">2026 · kept Rd5</span></div><div class="yearsline">1 of 3 years with Neil</div></td>
         <td class="costcell"><span class="val">5</span></td>
-        <td class="keptcell"></td>
+        <td class="keptcell"><span class="keptmark">KEEPING</span></td>
       </tr><tr class="dimrow">
         <td class="pcell">Ashton Jeanty <span class="postag">RB</span><div class="pubnote">Drafted round 1 in 2025.</div></td>
         <td class="rdcell">1</td>
@@ -904,7 +910,7 @@
       </table>
     </details><details class="histowner">
       <summary><h2>Phil</h2>
-        <span class="histmeta">15 players</span></summary>
+        <span class="histmeta">15 players · keeping 2</span></summary>
       <table class="histtable">
         <thead><tr>
           <th style="width:22%">Player</th>
@@ -913,12 +919,12 @@
           <th style="width:24%">Cost 2026</th>
           <th>Keeping 2026</th>
         </tr></thead>
-        <tbody><tr class="">
+        <tbody><tr class="keptrow">
         <td class="pcell">Matthew Stafford <span class="postag">QB</span><div class="pubnote">Added via FA or waivers during 2025 — rule 6: picked up in season, so he costs an 8.</div></td>
         <td class="rdcell">—</td>
         <td><div class="pillline"><span class="chip">2025 · added FA/waivers</span></div><div class="pillline"><span class="chip">2026 · kept Rd7</span></div><div class="yearsline">1 of 3 years with Phil</div></td>
-        <td class="costcell"><span class="val">8</span></td>
-        <td class="keptcell"></td>
+        <td class="costcell"><span class="val">7</span></td>
+        <td class="keptcell"><span class="keptmark">KEEPING</span></td>
       </tr><tr class="dimrow">
         <td class="pcell">Puka Nacua <span class="postag">WR</span><div class="pubnote">Kept 2024, 2025 — each year kept moves the price up a round.</div></td>
         <td class="rdcell">7</td>
@@ -961,12 +967,12 @@
         <td><div class="pillline"><span class="chip">2025 · drafted Rd11</span></div><div class="yearsline">1 of 3 years with Phil</div></td>
         <td class="costcell"><span class="val">8</span></td>
         <td class="keptcell"></td>
-      </tr><tr class="">
+      </tr><tr class="keptrow">
         <td class="pcell">Rams DEF <span class="postag">DEF</span><div class="pubnote">Drafted round 10 in 2025 — rule 6: round 8 or later costs an 8.</div></td>
         <td class="rdcell">10</td>
         <td><div class="pillline"><span class="chip">2025 · drafted Rd10</span></div><div class="pillline"><span class="chip">2026 · kept Rd8</span></div><div class="yearsline">1 of 3 years with Phil</div></td>
         <td class="costcell"><span class="val">8</span></td>
-        <td class="keptcell"></td>
+        <td class="keptcell"><span class="keptmark">KEEPING</span></td>
       </tr><tr class="">
         <td class="pcell">Josh Jacobs <span class="postag">RB</span><div class="pubnote">Drafted round 2 in 2025.</div></td>
         <td class="rdcell">2</td>
@@ -1007,7 +1013,7 @@
       </table>
     </details><details class="histowner">
       <summary><h2>Raj</h2>
-        <span class="histmeta">16 players</span></summary>
+        <span class="histmeta">16 players · keeping 2</span></summary>
       <table class="histtable">
         <thead><tr>
           <th style="width:22%">Player</th>
@@ -1022,12 +1028,12 @@
         <td><div class="pillline"><span class="chip">2025 · added FA/waivers</span></div><div class="yearsline">1 of 3 years with Raj</div></td>
         <td class="costcell"><span class="val zero">0 &middot; Ineligible</span><div><span class="inelig">Added 2025-12-24 — under 4 weeks rostered before the Dec 1 cutoff (rule 8)</span></div></td>
         <td class="keptcell"></td>
-      </tr><tr class="">
+      </tr><tr class="keptrow">
         <td class="pcell">Jaxon Smith-Njigba <span class="postag">WR</span><div class="pubnote">Kept 2025 — each year kept moves the price up a round.</div></td>
         <td class="rdcell">7</td>
         <td><div class="pillline"><span class="chip">2024 · drafted Rd10</span></div><div class="pillline"><span class="chip">2025 · kept Rd7</span></div><div class="pillline"><span class="chip">2026 · kept Rd6</span></div><div class="yearsline">2 of 3 years with Raj</div></td>
         <td class="costcell"><span class="val">6</span></td>
-        <td class="keptcell"></td>
+        <td class="keptcell"><span class="keptmark">KEEPING</span></td>
       </tr><tr class="dimrow">
         <td class="pcell">Ja'Marr Chase <span class="postag">WR</span><div class="pubnote">Drafted round 1 in 2025.</div></td>
         <td class="rdcell">1</td>
@@ -1082,12 +1088,12 @@
         <td><div class="pillline"><span class="chip">2025 · drafted Rd8</span></div><div class="yearsline">1 of 3 years with Raj</div></td>
         <td class="costcell"><span class="val zero">0 &middot; Ineligible</span><div><span class="inelig">Added 2025-12-17 — under 4 weeks rostered before the Dec 1 cutoff (rule 8)</span></div></td>
         <td class="keptcell"></td>
-      </tr><tr class="">
+      </tr><tr class="keptrow">
         <td class="pcell">Caleb Williams <span class="postag">QB</span><div class="pubnote">Drafted round 12 in 2025 — rule 6: round 8 or later costs an 8.</div></td>
         <td class="rdcell">12</td>
         <td><div class="pillline"><span class="chip">2025 · drafted Rd12</span></div><div class="pillline"><span class="chip">2026 · kept Rd8</span></div><div class="yearsline">1 of 3 years with Raj</div></td>
         <td class="costcell"><span class="val">8</span></td>
-        <td class="keptcell"></td>
+        <td class="keptcell"><span class="keptmark">KEEPING</span></td>
       </tr><tr class="">
         <td class="pcell">Jordan Addison <span class="postag">WR</span><div class="pubnote">Drafted round 11 in 2025 — rule 6: round 8 or later costs an 8.</div></td>
         <td class="rdcell">11</td>
@@ -1213,7 +1219,7 @@
       </table>
     </details><details class="histowner">
       <summary><h2>Yi</h2>
-        <span class="histmeta">15 players</span></summary>
+        <span class="histmeta">15 players · keeping 2</span></summary>
       <table class="histtable">
         <thead><tr>
           <th style="width:22%">Player</th>
@@ -1252,18 +1258,18 @@
         <td><div class="pillline"><span class="chip">2025 · drafted Rd5</span></div><div class="yearsline">1 of 3 years with Yi</div></td>
         <td class="costcell"><span class="val">5</span></td>
         <td class="keptcell"></td>
-      </tr><tr class="">
+      </tr><tr class="keptrow">
         <td class="pcell">Brock Bowers <span class="postag">TE</span><div class="pubnote">Kept 2025 — each year kept moves the price up a round.</div></td>
         <td class="rdcell">8</td>
         <td><div class="pillline"><span class="chip">2024 · drafted Rd12</span></div><div class="pillline"><span class="chip">2025 · kept Rd8</span></div><div class="pillline"><span class="chip">2026 · kept Rd7</span></div><div class="yearsline">2 of 3 years with Yi</div></td>
         <td class="costcell"><span class="val">7</span></td>
-        <td class="keptcell"></td>
-      </tr><tr class="">
+        <td class="keptcell"><span class="keptmark">KEEPING</span></td>
+      </tr><tr class="keptrow">
         <td class="pcell">Jaylen Warren <span class="postag">RB</span><div class="pubnote">Drafted round 9 in 2025 — rule 6: round 8 or later costs an 8.</div></td>
         <td class="rdcell">9</td>
         <td><div class="pillline"><span class="chip">2025 · drafted Rd9</span></div><div class="pillline"><span class="chip">2026 · kept Rd8</span></div><div class="yearsline">1 of 3 years with Yi</div></td>
         <td class="costcell"><span class="val">8</span></td>
-        <td class="keptcell"></td>
+        <td class="keptcell"><span class="keptmark">KEEPING</span></td>
       </tr><tr class="">
         <td class="pcell">Chase McLaughlin <span class="postag">K</span><div class="pubnote">Drafted round 15 in 2025 — rule 6: round 8 or later costs an 8.</div></td>
         <td class="rdcell">15</td>
@@ -1682,40 +1688,116 @@
     <span class="mono">(rule 8)</span> next to someone's cost, this is the list to check
     it against.</p>
     <ol>
-      <li><b>Keep up to two players</b> from your end-of-season roster. Zero or one works
-        too — nobody's forcing your hand.</li>
-      <li><b>The price is the round you drafted him in — and it climbs one round every
-        year you keep him.</b> Draft a guy in round 6, keep him next year for a round-6
-        pick, keep him again the year after (his third and final year) and it's down
-        to a round-5 pick.</li>
-      <li><b>First-rounders can't be kept. Full stop.</b> Drafted him in round 1? He's
-        off the keeper table before the season even starts — no path around it.</li>
-      <li><b>Once his price reaches round 1, he's done as a keeper.</b> A round-2 pick,
-        kept twice, prices out at round 1 in year three — right as the three-year cap
-        (rule 5) ends his run anyway.</li>
-      <li><b>Three years, then back in the pool.</b> Draft year plus two keeper years is
-        the max, no exceptions — that's why Puka Nacua hit the board again in 2026
-        after three straight years with Phil.</li>
-      <li><b>Drafted in round 8 or later — or picked up during the season? He costs a
-        round 8.</b> That's the sleeper discount: Puka Nacua went in round 14 back in
-        2023 and cost just an 8th-round pick to keep.</li>
-      <li><b>The price sticks to the player, not the moment.</b> Drop a round-4 keeper
-        and someone else scoops him off waivers — he's still a round-4 keeper for them,
-        not a fresh round-8 default.</li>
-      <li><b>He has to finish the year on your team — and he has to have actually
-        played.</b> Rostered the final four weeks of the season, with at least one game
-        played that year. No stashing a December pickup and calling him a keeper.</li>
-      <li><b>Your two keepers can't cost the same round.</b> One of them bumps up a
-        round — your call, or ADP makes the call for you if you don't.</li>
-      <li><b>In Yahoo, the salary next to a player's name is his price in rounds.</b>
-        A <b>0</b> means he can't be kept this year; no number means <b>8</b>.</li>
-      <li><b>A trade restarts the clock.</b> Get traded a keeper mid-season and you get
-        a fresh three years with him — his price carries over unchanged, but the years
-        his old owner already used don't follow him.</li>
-      <li><b>Dropped and never added back? He's gone for good.</b> Only players on your
-        actual final roster at season's end are keeper-eligible — release him in
-        October and never re-add him, and there's no keeper value left to talk about.</li>
+      <li><b>You can hold onto two players from this year's team when next season rolls
+        around.</b> Zero or one is perfectly fine too, if you'd rather take your chances in
+        the draft — there's just no way to keep a third.
+        <span class="ex">Going into 2026, Frank is holding onto Chase Brown and Quinshon
+        Judkins. That's the two he gets — if he wanted a third guy, one of those two would
+        have to go back in the pool.</span></li>
+
+      <li><b>Whatever round you drafted him in is what he costs you to keep the first
+        time — and every year after that you keep him, the price gets one round
+        cheaper.</b> That discount only builds up in years you actually kept him, though.
+        If you let him go and he ends up back in someone's draft fresh, the clock resets.
+        <span class="ex">Take Brock Bowers. Yi took him in the 12th round back in 2024,
+        which round-8-or-later pricing sets at a round 8 to keep. Yi kept him at that price
+        in 2025, and holding onto him again for 2026 drops it down to a round 7 — one
+        cheaper for the second straight keeper year.</span></li>
+
+      <li><b>A first-round pick can never be a keeper — not that season, not any season
+        after.</b> It's the one rule that trumps everything else on this list, no matter
+        how the rest of a player's value plays out.
+        <span class="ex">Bijan Robinson went in round 1 for Anish, and Ashton Jeanty went
+        round 1 for Neil. Doesn't matter how good either one turns out — their cost just
+        reads 0, not eligible.</span></li>
+
+      <li><b>If a keeper's price would ever decay down to round 1, that's as far as it
+        goes — a round-1 cost isn't allowed, whether he got there by being drafted there
+        (rule 3) or by the discount wearing him down to it.</b> It's the same wall
+        either way, not a different one. In practice, that means a round-2 pick only ever
+        gets kept once: his price only has one round of room to give before it hits that
+        wall.
+        <span class="ex">Frank drafted Jahmyr Gibbs in round 2 in 2024 and kept him in 2025
+        at that same round-2 price. Keeping him again for 2026 would drop his price to
+        round 1 — off limits, exactly like any other first-rounder — so he's back in the
+        draft with a cost of 0, same as Bijan Robinson and Ashton Jeanty up in rule 3.
+        Justin Jefferson, over on Yi's roster, hit the identical wall the identical
+        way.</span></li>
+
+      <li><b>Three years is the absolute most you can keep the same guy — the season you
+        draft him, plus two keeper years after that.</b> Once those three years are up,
+        he goes back into the draft no matter how cheap he's gotten.
+        <span class="ex">Puka Nacua is the clean example. Phil drafted him in round 14 back
+        in 2023, kept him in 2024 for a round-8 price, and kept him again in 2025 at round
+        7. 2026 would've been his fourth year on Phil's roster and a round-6 price — but
+        the three-year clock had already run out, so he's ineligible and back on the
+        board.</span></li>
+
+      <li><b>Anyone who lasted until round 8 or later on draft day — or who you scooped
+        up off waivers or free agency during the season — keeps at a flat round-8
+        price.</b> Doesn't matter if he actually went in round 9 or round 14; round 8 is
+        the floor for everybody down there.
+        <span class="ex">Eric drafted Rashee Rice in round 9 in 2025, but he keeps at round
+        8, not 9. Frank never drafted Quinshon Judkins at all — picked him up mid-season —
+        and he still keeps at that same round 8.</span></li>
+
+      <li><b>A keeper's price travels with the player, not with whoever's holding him at
+        the moment.</b> Drop him and someone else picks him up, and they inherit exactly
+        the price he already had — it doesn't reset just because he changed hands.
+        <span class="ex">Say you're carrying a round-4 keeper and you cut him loose in
+        October. Whoever grabs him off waivers is stuck with that same round-4 price, not
+        a clean round-8 default.</span></li>
+
+      <li><b>To even be keeper-eligible, he has to have been on your roster for the
+        season's final four weeks and actually played at least one game that year.</b> The
+        cutoff date comes straight from Yahoo's own season calendar, so there's nothing to
+        argue about and nothing anyone can override by hand.
+        <span class="ex">2025 wrapped up December 29, which put the cutoff at December 1.
+        Anish added Michael Carter on December 17 — sixteen days too late — so Carter isn't
+        keeper-eligible. Frank's Courtland Sutton missed it the same way, added that same
+        day.</span></li>
+
+      <li><b>Your two keepers can't land on the same round.</b> If they do, one of them
+        has to bump up a round, and that becomes his real price from then on — permanently,
+        not just for this year. You pick which one moves; leave it up to chance and ADP
+        breaks the tie for you.
+        <span class="ex">Going into 2026, Phil's Matthew Stafford and his Rams D/ST both
+        priced out at round 8. Stafford got bumped up to round 7, so Phil's really spending
+        a 7 and an 8, not two 8s. And that bump sticks around for good — Raj's Jaxon
+        Smith-Njigba got bumped from 8 up to 7 back in 2025, which is exactly why his price
+        is down to round 6 now instead of 7.</span></li>
+
+      <li><b>On Yahoo's own Choose Keepers page, the salary listed next to each name is
+        his keeper cost — the actual draft round he'll occupy on draft day.</b> A cost of
+        7 means he takes your round-7 pick. A 0 means he's not eligible this year.
+        <span class="ex">Brock Bowers shows a keeper cost of 7. Keep him, and when the
+        draft happens he simply occupies Yi's round-7 pick — Yi picks normally in every
+        other round, but round 7 is already spoken for. Look up Puka Nacua instead and
+        you'd see a 0 — he's not keeper eligible this year, full stop, not just skipped
+        over.</span></li>
+
+      <li><b>A trade resets a player's three-year keeper clock from rule 5 — but it does
+        not touch his price.</b> Whoever trades for him gets a full fresh three years to
+        work with, starting back at zero used. The cost he already carries comes along
+        exactly as it stood; the years his previous owner already burned off don't
+        transfer with him.
+        <span class="ex">Trade for a guy who's already been kept twice under his old owner
+        — meaning rule 5 would've retired him after one more year there — and his new owner
+        still gets a full three years out of him, at whatever discounted price he's already
+        earned. Not a fresh reset back to his original round, just a fresh clock.</span></li>
+
+      <li><b>Only players still on your roster when the season ends count as
+        keepers.</b> Drop someone in October and never bring him back, and there's simply
+        no keeper value left to talk about — he's just gone.
+        <span class="ex">Cut a round-3 keeper in week 8 and that's the end of it for him.
+        Even if you re-add him later that same season, he'd still need to clear rule 8's
+        four-week, actually-played requirement all over again.</span></li>
     </ol>
+    <p class="pnote" style="font-size:12px;margin-top:14px;">Every cost you see on this
+    page comes straight out of these rules, applied in exactly this order — and every
+    number in the examples above is real, pulled right from our own draft history. If a
+    cost ever looks off, the rule that produced it is named right next to it, so you can
+    trace exactly why.</p>
   </section></div>
   <div class="tab" id="tab-history"><section class="rules" id="hist-values">
     <h2>Keeper Values, year by year</h2>
